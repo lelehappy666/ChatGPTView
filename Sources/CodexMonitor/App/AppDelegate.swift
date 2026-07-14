@@ -10,6 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let completionNotifier = ProjectCompletionNotifier()
     private var completionDetector = SessionCompletionDetector()
     private var snapshotCancellable: AnyCancellable?
+    private var pendingCompletionTasks: [String: Task<Void, Never>] = [:]
+    private var pendingCompletionUpdates: [String: Date] = [:]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -26,10 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] snapshot in
                 guard let self else { return }
                 for session in completionDetector.completedSessions(in: snapshot.sessions) {
-                    completionNotifier.notify(
-                        projectName: session.projectName,
-                        sessionName: session.displayName
-                    )
+                    scheduleCompletionNotification(for: session)
                 }
             }
 
@@ -53,7 +52,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        pendingCompletionTasks.values.forEach { $0.cancel() }
         watcher?.stop()
         notchWindowController?.stop()
+    }
+
+    private func scheduleCompletionNotification(for session: SessionActivity) {
+        let notificationFreshness: TimeInterval = 15
+        guard Date.now.timeIntervalSince(session.updatedAt) <= notificationFreshness else {
+            return
+        }
+
+        pendingCompletionTasks[session.id]?.cancel()
+        pendingCompletionUpdates[session.id] = session.updatedAt
+        pendingCompletionTasks[session.id] = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            guard !Task.isCancelled else { return }
+
+            store?.requestRefresh()
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            guard !Task.isCancelled,
+                  pendingCompletionUpdates[session.id] == session.updatedAt,
+                  let latest = store?.snapshot.sessions.first(where: { $0.id == session.id }),
+                  latest.state == .completed,
+                  latest.updatedAt == session.updatedAt,
+                  Date.now.timeIntervalSince(latest.updatedAt) <= notificationFreshness else {
+                clearPendingCompletion(id: session.id, update: session.updatedAt)
+                return
+            }
+
+            completionNotifier.notify(
+                projectName: session.projectName,
+                sessionName: session.displayName
+            )
+            clearPendingCompletion(id: session.id, update: session.updatedAt)
+        }
+    }
+
+    private func clearPendingCompletion(id: String, update: Date) {
+        guard pendingCompletionUpdates[id] == update else { return }
+        pendingCompletionUpdates.removeValue(forKey: id)
+        pendingCompletionTasks.removeValue(forKey: id)
     }
 }
