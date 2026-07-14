@@ -22,10 +22,10 @@ struct NotchDashboardView: View {
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 12).onEnded { value in
-                    if value.translation.width < -28 { page = min(page + 1, NotchLayout.pageCount - 1) }
-                    if value.translation.width > 28 { page = max(page - 1, 0) }
+                    page = PageNavigation.target(from: page, delta: value.translation.width)
                 }
             )
+            .background(WheelPagingCapture(page: $page))
 
             HStack(spacing: 6) {
                 ForEach(0..<NotchLayout.pageCount, id: \.self) { index in
