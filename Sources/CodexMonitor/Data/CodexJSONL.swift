@@ -70,7 +70,7 @@ struct RateWindow: Decodable {
 
 struct SessionSummary: Equatable, Sendable {
     let date: Date
-    let projectName: String
+    let projectName: String?
     let totalTokens: Int
     let longestTaskDuration: TimeInterval
     let state: ProjectRunState

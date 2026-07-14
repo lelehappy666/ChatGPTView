@@ -25,7 +25,10 @@ enum SessionScanner {
         return summaries
     }
 
-    static func parseFile(_ url: URL) throws -> SessionSummary? {
+    static func parseFile(
+        _ url: URL,
+        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
+    ) throws -> SessionSummary? {
         let decoder = JSONDecoder()
 
         var timestamp: Date?
@@ -77,7 +80,7 @@ enum SessionScanner {
 
         return SessionSummary(
             date: timestamp,
-            projectName: URL(fileURLWithPath: cwd).lastPathComponent,
+            projectName: projectName(for: cwd, homeDirectory: homeDirectory),
             totalTokens: tokens,
             longestTaskDuration: longestTaskDuration,
             state: state,
@@ -85,6 +88,16 @@ enum SessionScanner {
             weeklyUsedPercent: weeklyUsedPercent,
             weeklyResetsAt: weeklyResetsAt
         )
+    }
+
+    static func projectName(for cwd: String, homeDirectory: URL) -> String? {
+        let directory = URL(fileURLWithPath: cwd, isDirectory: true).standardizedFileURL
+        let home = homeDirectory.standardizedFileURL
+        guard directory != home else { return nil }
+
+        let name = directory.lastPathComponent
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? nil : name
     }
 
     private static func isRelevant(_ line: Data) -> Bool {

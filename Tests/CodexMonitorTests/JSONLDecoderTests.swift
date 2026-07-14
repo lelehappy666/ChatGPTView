@@ -2,6 +2,20 @@ import XCTest
 @testable import CodexMonitor
 
 final class JSONLDecoderTests: XCTestCase {
+    func testHomeDirectoryDoesNotBecomeProjectName() {
+        let home = URL(fileURLWithPath: "/Users/lele", isDirectory: true)
+
+        XCTAssertNil(SessionScanner.projectName(for: "/Users/lele", homeDirectory: home))
+        XCTAssertNil(SessionScanner.projectName(for: "/Users/lele/", homeDirectory: home))
+        XCTAssertEqual(
+            SessionScanner.projectName(
+                for: "/Users/lele/Desktop/大丰数艺/Codex额度",
+                homeDirectory: home
+            ),
+            "Codex额度"
+        )
+    }
+
     func testRunningFixtureExtractsWeeklyQuotaAndProjectName() throws {
         let summary = try SessionScanner.parseFile(fixtureURL(named: "session-running"))
 

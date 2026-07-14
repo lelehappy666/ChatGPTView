@@ -24,9 +24,14 @@ enum UsageAggregator {
             max(0, min(100, 100 - $0))
         }
 
-        let groupedByProject = Dictionary(grouping: sessions, by: \.projectName)
+        let namedSessions = sessions.compactMap { session in
+            session.projectName.map { (name: $0, session: session) }
+        }
+        let groupedByProject = Dictionary(grouping: namedSessions, by: \.name)
         let projects = groupedByProject.compactMap { projectName, values -> ProjectActivity? in
-            guard let latest = values.max(by: { $0.updatedAt < $1.updatedAt }) else {
+            guard let latest = values
+                .map(\.session)
+                .max(by: { $0.updatedAt < $1.updatedAt }) else {
                 return nil
             }
             if latest.state == .completed,

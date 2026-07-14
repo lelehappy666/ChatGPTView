@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -6,6 +7,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var watcher: SessionDirectoryWatcher?
     private var menuBarController: MenuBarController?
     private var notchWindowController: NotchWindowController?
+    private let completionNotifier = ProjectCompletionNotifier()
+    private var completionDetector = ProjectCompletionDetector()
+    private var snapshotCancellable: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -13,6 +17,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let sessionsRoot = AppPaths.sessionsRoot()
         let store = MonitorStore(root: sessionsRoot)
         self.store = store
+
+        completionNotifier.requestAuthorization()
+        snapshotCancellable = store.$snapshot.sink { [weak self] snapshot in
+            guard let self else { return }
+            for project in completionDetector.completedProjects(in: snapshot.projects) {
+                completionNotifier.notify(projectName: project.name)
+            }
+        }
 
         let watcher = SessionDirectoryWatcher(root: sessionsRoot) { [weak store] in
             Task { @MainActor in

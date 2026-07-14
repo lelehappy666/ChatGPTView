@@ -64,6 +64,27 @@ final class UsageAggregatorTests: XCTestCase {
         XCTAssertTrue(snapshot.projects.isEmpty)
     }
 
+    func testUnnamedSessionContributesUsageWithoutCreatingProject() {
+        let now = date(2026, 7, 14, 12)
+        let unnamed = summary(
+            date: now,
+            project: nil,
+            tokens: 420,
+            state: .running,
+            updatedAt: now
+        )
+
+        let snapshot = UsageAggregator.makeSnapshot(
+            sessions: [unnamed],
+            now: now,
+            calendar: utcCalendar
+        )
+
+        XCTAssertEqual(snapshot.lifetimeTokens, 420)
+        XCTAssertEqual(snapshot.dailyActivity.map(\.tokens), [420])
+        XCTAssertTrue(snapshot.projects.isEmpty)
+    }
+
     private var utcCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -82,7 +103,7 @@ final class UsageAggregatorTests: XCTestCase {
 
     private func summary(
         date: Date,
-        project: String,
+        project: String?,
         tokens: Int,
         state: ProjectRunState,
         updatedAt: Date,
