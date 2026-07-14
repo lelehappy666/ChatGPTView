@@ -1,4 +1,5 @@
 .build/
+.tools/
 dist/
 dist-win11/
 Windows/**/bin/

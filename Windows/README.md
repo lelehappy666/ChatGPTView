@@ -3,12 +3,12 @@
 ## 打包环境
 
 1. 使用 Windows 11 x64。
-2. 安装 [.NET 8 SDK x64](https://dotnet.microsoft.com/download/dotnet/8.0)。
-3. 保持项目目录结构完整，不要只复制 `Windows` 文件夹。
+2. 保持项目目录结构完整，不要只复制 `Windows` 文件夹。
+3. 电脑可以访问微软的 .NET 下载地址。
 
 ## 一键打包
 
-在项目根目录双击 `build-win11.bat`。脚本会自动执行 Release、自包含、单文件打包，并生成：
+在项目根目录双击 `build-win11.bat`。如果电脑没有 .NET 8 SDK，脚本会先询问是否下载；输入 `Y` 后会显示微软官方安装脚本的下载与安装进度，并把 SDK 安装到项目内的 `.tools\dotnet`，不需要管理员权限。安装验证通过后会自动继续 Release、自包含、单文件打包，并生成：
 
 ```text
 dist-win11\ChatGPT.exe
