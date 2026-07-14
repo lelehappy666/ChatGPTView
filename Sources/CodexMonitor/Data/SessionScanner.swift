@@ -33,6 +33,8 @@ enum SessionScanner {
 
         var timestamp: Date?
         var cwd: String?
+        var sessionID: String?
+        var agentNickname: String?
         var tokens = 0
         var longestTaskDuration: TimeInterval = 0
         var state: ProjectRunState = .completed
@@ -51,6 +53,8 @@ enum SessionScanner {
             case "session_meta":
                 cwd = payload.cwd
                 timestamp = payload.timestamp.flatMap(parseTimestamp)
+                sessionID = payload.id ?? payload.sessionID
+                agentNickname = payload.agentNickname
             case "task_started":
                 state = .running
                 updatedAt = payload.startedAt.map(Date.init(timeIntervalSince1970:)) ?? updatedAt
@@ -81,6 +85,8 @@ enum SessionScanner {
         return SessionSummary(
             date: timestamp,
             projectName: projectName(for: cwd, homeDirectory: homeDirectory),
+            sessionID: sessionID ?? url.deletingPathExtension().lastPathComponent,
+            agentNickname: agentNickname,
             totalTokens: tokens,
             longestTaskDuration: longestTaskDuration,
             state: state,

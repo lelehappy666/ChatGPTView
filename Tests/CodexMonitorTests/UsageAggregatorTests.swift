@@ -101,6 +101,40 @@ final class UsageAggregatorTests: XCTestCase {
         XCTAssertTrue(snapshot.projects.isEmpty)
     }
 
+    func testSameProjectKeepsRunningAndCompletedSessionsIndependent() {
+        let now = date(2026, 7, 14, 12)
+        let sessions = [
+            summary(
+                date: now.addingTimeInterval(-600),
+                project: "Replaypoker",
+                tokens: 10,
+                state: .running,
+                updatedAt: now.addingTimeInterval(-10),
+                sessionID: "running-session",
+                agentNickname: "Atlas"
+            ),
+            summary(
+                date: now.addingTimeInterval(-300),
+                project: "Replaypoker",
+                tokens: 20,
+                state: .completed,
+                updatedAt: now.addingTimeInterval(-5),
+                sessionID: "completed-session",
+                agentNickname: "Carson"
+            )
+        ]
+
+        let snapshot = UsageAggregator.makeSnapshot(
+            sessions: sessions,
+            now: now,
+            calendar: utcCalendar
+        )
+
+        XCTAssertEqual(snapshot.sessions.map(\.id), ["running-session", "completed-session"])
+        XCTAssertEqual(snapshot.sessions.map(\.state), [.running, .completed])
+        XCTAssertEqual(snapshot.sessions.map(\.displayName), ["Atlas", "Carson"])
+    }
+
     private var utcCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -123,11 +157,15 @@ final class UsageAggregatorTests: XCTestCase {
         tokens: Int,
         state: ProjectRunState,
         updatedAt: Date,
-        weeklyUsed: Double? = nil
+        weeklyUsed: Double? = nil,
+        sessionID: String = "session",
+        agentNickname: String? = nil
     ) -> SessionSummary {
         SessionSummary(
             date: date,
             projectName: project,
+            sessionID: sessionID,
+            agentNickname: agentNickname,
             totalTokens: tokens,
             longestTaskDuration: 0,
             state: state,

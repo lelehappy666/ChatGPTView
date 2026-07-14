@@ -8,6 +8,9 @@ struct CodexEnvelope: Decodable {
         let type: String?
         let timestamp: String?
         let cwd: String?
+        let id: String?
+        let sessionID: String?
+        let agentNickname: String?
         let startedAt: Double?
         let completedAt: Double?
         let durationMS: Double?
@@ -19,8 +22,11 @@ struct CodexEnvelope: Decodable {
             case type
             case timestamp
             case cwd
+            case id
             case reason
             case info
+            case sessionID = "session_id"
+            case agentNickname = "agent_nickname"
             case startedAt = "started_at"
             case completedAt = "completed_at"
             case durationMS = "duration_ms"
@@ -71,10 +77,36 @@ struct RateWindow: Decodable {
 struct SessionSummary: Equatable, Sendable {
     let date: Date
     let projectName: String?
+    let sessionID: String
+    let agentNickname: String?
     let totalTokens: Int
     let longestTaskDuration: TimeInterval
     let state: ProjectRunState
     let updatedAt: Date
     let weeklyUsedPercent: Double?
     let weeklyResetsAt: Date?
+
+    init(
+        date: Date,
+        projectName: String?,
+        sessionID: String = "",
+        agentNickname: String? = nil,
+        totalTokens: Int,
+        longestTaskDuration: TimeInterval,
+        state: ProjectRunState,
+        updatedAt: Date,
+        weeklyUsedPercent: Double?,
+        weeklyResetsAt: Date?
+    ) {
+        self.date = date
+        self.projectName = projectName
+        self.sessionID = sessionID
+        self.agentNickname = agentNickname
+        self.totalTokens = totalTokens
+        self.longestTaskDuration = longestTaskDuration
+        self.state = state
+        self.updatedAt = updatedAt
+        self.weeklyUsedPercent = weeklyUsedPercent
+        self.weeklyResetsAt = weeklyResetsAt
+    }
 }

@@ -2,6 +2,32 @@ import XCTest
 @testable import CodexMonitor
 
 final class JSONLDecoderTests: XCTestCase {
+    func testSessionMetadataExtractsStableIdentityAndNickname() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("jsonl")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let contents = """
+        {"type":"session_meta","payload":{"type":"session_meta","id":"session-123","agent_nickname":"Carson","timestamp":"2026-07-14T06:36:17Z","cwd":"/Users/test/Projects/Replaypoker"}}
+        {"type":"event_msg","payload":{"type":"task_started","started_at":1784010977}}
+        """
+        try contents.write(to: url, atomically: true, encoding: .utf8)
+
+        let summary = try XCTUnwrap(SessionScanner.parseFile(url))
+
+        XCTAssertEqual(summary.sessionID, "session-123")
+        XCTAssertEqual(summary.agentNickname, "Carson")
+    }
+
+    func testSessionIdentityFallsBackToFileName() throws {
+        let summary = try XCTUnwrap(
+            SessionScanner.parseFile(fixtureURL(named: "session-running"))
+        )
+
+        XCTAssertEqual(summary.sessionID, "session-running")
+        XCTAssertNil(summary.agentNickname)
+    }
+
     func testHomeDirectoryDoesNotBecomeProjectName() {
         let home = URL(fileURLWithPath: "/Users/lele", isDirectory: true)
 

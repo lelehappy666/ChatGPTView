@@ -43,6 +43,19 @@ enum UsageAggregator {
         .visibleForMenu(at: now)
         .sortedForMenu
 
+        let sessionActivities = namedSessions.map { item in
+            SessionActivity(
+                id: item.session.sessionID,
+                projectName: item.name,
+                displayName: SessionDisplayName.make(
+                    agentNickname: item.session.agentNickname,
+                    startedAt: item.session.date
+                ),
+                state: item.session.state,
+                updatedAt: item.session.updatedAt
+            )
+        }
+
         let activeDates = Set(
             dailyActivity
                 .filter { $0.tokens > 0 }
@@ -66,6 +79,7 @@ enum UsageAggregator {
             currentStreakDays: streaks.current,
             longestStreakDays: streaks.longest,
             projects: projects,
+            sessions: sessionActivities,
             lastUpdatedAt: sessions.map(\.updatedAt).max()
         )
     }

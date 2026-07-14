@@ -41,10 +41,13 @@ struct CompletionNotificationMessage: Equatable {
     let title: String
     let body: String
 
-    static func message(for projectName: String) -> Self {
-        Self(
-            title: "Codex 项目已完成",
-            body: "\(projectName) 已完成"
+    static func message(projectName: String, sessionName: String) -> Self {
+        let sessionLabel = sessionName.hasSuffix("会话")
+            ? sessionName
+            : "\(sessionName) 会话"
+        return Self(
+            title: projectName,
+            body: "\(sessionLabel)已完成"
         )
     }
 }
@@ -80,8 +83,11 @@ final class ProjectCompletionNotifier: NSObject, UNUserNotificationCenterDelegat
         }
     }
 
-    func notify(projectName: String) {
-        let message = CompletionNotificationMessage.message(for: projectName)
+    func notify(projectName: String, sessionName: String) {
+        let message = CompletionNotificationMessage.message(
+            projectName: projectName,
+            sessionName: sessionName
+        )
         let content = UNMutableNotificationContent()
         content.title = message.title
         content.body = message.body

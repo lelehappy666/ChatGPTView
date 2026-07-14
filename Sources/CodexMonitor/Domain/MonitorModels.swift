@@ -27,6 +27,27 @@ struct ProjectActivity: Identifiable, Equatable, Sendable {
     let updatedAt: Date
 }
 
+struct SessionActivity: Identifiable, Equatable, Sendable {
+    let id: String
+    let projectName: String
+    let displayName: String
+    let state: ProjectRunState
+    let updatedAt: Date
+}
+
+enum SessionDisplayName {
+    static func make(agentNickname: String?, startedAt: Date) -> String {
+        if let agentNickname,
+           !agentNickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return agentNickname
+        }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "HH:mm"
+        return "\(formatter.string(from: startedAt)) 会话"
+    }
+}
+
 extension Array where Element == ProjectActivity {
     func visibleForMenu(at now: Date = .now) -> [ProjectActivity] {
         filter {
@@ -64,6 +85,7 @@ struct MonitorSnapshot: Equatable, Sendable {
     let currentStreakDays: Int
     let longestStreakDays: Int
     let projects: [ProjectActivity]
+    let sessions: [SessionActivity]
     let lastUpdatedAt: Date?
 
     static let empty = MonitorSnapshot(
@@ -75,6 +97,7 @@ struct MonitorSnapshot: Equatable, Sendable {
         currentStreakDays: 0,
         longestStreakDays: 0,
         projects: [],
+        sessions: [],
         lastUpdatedAt: nil
     )
 }

@@ -49,12 +49,28 @@ final class ProjectCompletionNotifierTests: XCTestCase {
         )
     }
 
-    func testCompletionNotificationUsesExpectedChineseCopy() {
+    func testCompletionNotificationUsesProjectNameAsTitle() {
         XCTAssertEqual(
-            CompletionNotificationMessage.message(for: "Codex额度"),
+            CompletionNotificationMessage.message(
+                projectName: "Replaypoker(ios)",
+                sessionName: "Carson"
+            ),
             CompletionNotificationMessage(
-                title: "Codex 项目已完成",
-                body: "Codex额度 已完成"
+                title: "Replaypoker(ios)",
+                body: "Carson 会话已完成"
+            )
+        )
+    }
+
+    func testCompletionNotificationSupportsTimeBasedSessionName() {
+        XCTAssertEqual(
+            CompletionNotificationMessage.message(
+                projectName: "Codex额度",
+                sessionName: "14:36 会话"
+            ),
+            CompletionNotificationMessage(
+                title: "Codex额度",
+                body: "14:36 会话已完成"
             )
         )
     }

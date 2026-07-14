@@ -8,7 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBarController: MenuBarController?
     private var notchWindowController: NotchWindowController?
     private let completionNotifier = ProjectCompletionNotifier()
-    private var completionDetector = ProjectCompletionDetector()
+    private var completionDetector = SessionCompletionDetector()
     private var snapshotCancellable: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -25,8 +25,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .dropFirst()
             .sink { [weak self] snapshot in
                 guard let self else { return }
-                for project in completionDetector.completedProjects(in: snapshot.projects) {
-                    completionNotifier.notify(projectName: project.name)
+                for session in completionDetector.completedSessions(in: snapshot.sessions) {
+                    completionNotifier.notify(
+                        projectName: session.projectName,
+                        sessionName: session.displayName
+                    )
                 }
             }
 
