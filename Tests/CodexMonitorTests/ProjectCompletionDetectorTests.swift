@@ -11,6 +11,21 @@ final class ProjectCompletionDetectorTests: XCTestCase {
         ]).isEmpty)
     }
 
+    func testDuplicateSessionIDsInBaselineAreSafelyMerged() {
+        var detector = SessionCompletionDetector()
+
+        XCTAssertTrue(detector.completedSessions(in: [
+            session("same", project: "项目", state: .completed, at: 100),
+            session("same", project: "项目", state: .completed, at: 101)
+        ]).isEmpty)
+        XCTAssertEqual(
+            detector.completedSessions(in: [
+                session("same", project: "项目", state: .completed, at: 102)
+            ]).map(\.id),
+            ["same"]
+        )
+    }
+
     func testCompletedSessionNotifiesWhileAnotherSessionInSameProjectRuns() {
         var detector = SessionCompletionDetector()
         let running = session("running", project: "Replaypoker", state: .running, at: 100)

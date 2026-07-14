@@ -135,6 +135,38 @@ final class UsageAggregatorTests: XCTestCase {
         XCTAssertEqual(snapshot.sessions.map(\.displayName), ["Atlas", "Carson"])
     }
 
+    func testDuplicateSessionIDsUseNewestStateOnly() {
+        let now = date(2026, 7, 14, 12)
+        let duplicates = [
+            summary(
+                date: now.addingTimeInterval(-600),
+                project: "项目",
+                tokens: 10,
+                state: .running,
+                updatedAt: now.addingTimeInterval(-10),
+                sessionID: "same"
+            ),
+            summary(
+                date: now.addingTimeInterval(-600),
+                project: "项目",
+                tokens: 20,
+                state: .completed,
+                updatedAt: now.addingTimeInterval(-5),
+                sessionID: "same"
+            )
+        ]
+
+        let snapshot = UsageAggregator.makeSnapshot(
+            sessions: duplicates,
+            now: now,
+            calendar: utcCalendar
+        )
+
+        XCTAssertEqual(snapshot.sessions.count, 1)
+        XCTAssertEqual(snapshot.sessions.first?.state, .completed)
+        XCTAssertEqual(snapshot.sessions.first?.updatedAt, now.addingTimeInterval(-5))
+    }
+
     private var utcCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!

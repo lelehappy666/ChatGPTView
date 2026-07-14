@@ -43,7 +43,18 @@ enum UsageAggregator {
         .visibleForMenu(at: now)
         .sortedForMenu
 
-        let sessionActivities = namedSessions.map { item in
+        let newestSessionsByID = namedSessions.reduce(
+            into: [String: (name: String, session: SessionSummary)]()
+        ) { result, item in
+            guard let existing = result[item.session.sessionID] else {
+                result[item.session.sessionID] = item
+                return
+            }
+            if item.session.updatedAt > existing.session.updatedAt {
+                result[item.session.sessionID] = item
+            }
+        }
+        let sessionActivities = newestSessionsByID.values.map { item in
             SessionActivity(
                 id: item.session.sessionID,
                 projectName: item.name,
@@ -54,6 +65,10 @@ enum UsageAggregator {
                 state: item.session.state,
                 updatedAt: item.session.updatedAt
             )
+        }
+        .sorted {
+            if $0.updatedAt != $1.updatedAt { return $0.updatedAt < $1.updatedAt }
+            return $0.id < $1.id
         }
 
         let activeDates = Set(
