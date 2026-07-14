@@ -18,7 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let store = MonitorStore(root: sessionsRoot)
         self.store = store
 
-        completionNotifier.requestAuthorization()
+        Task { [completionNotifier] in
+            await completionNotifier.ensureAuthorization()
+        }
         snapshotCancellable = store.$snapshot.sink { [weak self] snapshot in
             guard let self else { return }
             for project in completionDetector.completedProjects(in: snapshot.projects) {
