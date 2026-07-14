@@ -1,4 +1,7 @@
 .build/
 dist/
+dist-win11/
+Windows/**/bin/
+Windows/**/obj/
 .superpowers/
 .DS_Store

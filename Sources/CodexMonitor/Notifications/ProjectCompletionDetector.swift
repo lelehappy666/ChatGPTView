@@ -1,11 +1,10 @@
 import Foundation
 
 struct SessionCompletionDetector {
-    private var latestCompletedUpdates: [String: Date]?
+    private var latestObservedSessions: [String: SessionActivity]?
 
     mutating func completedSessions(in sessions: [SessionActivity]) -> [SessionActivity] {
-        let newestCompleted = sessions
-            .filter { $0.state == .completed }
+        let newestSessions = sessions
             .reduce(into: [String: SessionActivity]()) { result, session in
                 guard let existing = result[session.id] else {
                     result[session.id] = session
@@ -21,27 +20,30 @@ struct SessionCompletionDetector {
                 return $0.id < $1.id
             }
 
-        guard var completedUpdates = latestCompletedUpdates else {
-            var baseline: [String: Date] = [:]
-            for session in newestCompleted {
-                baseline[session.id] = session.updatedAt
-            }
-            latestCompletedUpdates = baseline
+        guard var observedSessions = latestObservedSessions else {
+            latestObservedSessions = Dictionary(
+                uniqueKeysWithValues: newestSessions.map { ($0.id, $0) }
+            )
             return []
         }
 
-        let completed = newestCompleted.filter { session in
-            guard let previousUpdate = completedUpdates[session.id] else { return true }
-            return session.updatedAt > previousUpdate
+        let completed = newestSessions.filter { session in
+            guard session.state == .completed,
+                  let previous = observedSessions[session.id] else {
+                return false
+            }
+            return previous.state == .running &&
+                session.updatedAt > previous.updatedAt
         }
 
-        for session in newestCompleted {
-            completedUpdates[session.id] = max(
-                completedUpdates[session.id] ?? .distantPast,
-                session.updatedAt
-            )
+        for session in newestSessions {
+            guard let previous = observedSessions[session.id],
+                  previous.updatedAt > session.updatedAt else {
+                observedSessions[session.id] = session
+                continue
+            }
         }
-        latestCompletedUpdates = completedUpdates
+        latestObservedSessions = observedSessions
         return completed
     }
 }

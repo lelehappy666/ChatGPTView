@@ -1,6 +1,12 @@
 import Foundation
 
 enum SessionScanner {
+    private struct LifecycleEvent {
+        let state: ProjectRunState
+        let updatedAt: Date?
+        let duration: TimeInterval
+    }
+
     static func scan(root: URL) async throws -> [SessionSummary] {
         try await Task.detached(priority: .utility) {
             try scanSynchronously(root: root)
@@ -80,6 +86,14 @@ enum SessionScanner {
             }
         }
 
+        if let lifecycle = try latestLifecycleEvent(in: url) {
+            state = lifecycle.state
+            if let lifecycleUpdatedAt = lifecycle.updatedAt {
+                updatedAt = lifecycleUpdatedAt
+            }
+            longestTaskDuration = max(longestTaskDuration, lifecycle.duration)
+        }
+
         guard let timestamp, let cwd else {
             return nil
         }
@@ -127,6 +141,88 @@ enum SessionScanner {
             return date
         }
         return ISO8601DateFormatter().date(from: value)
+    }
+
+    private static func latestLifecycleEvent(
+        in url: URL,
+        chunkSize: Int = 64 * 1_024
+    ) throws -> LifecycleEvent? {
+        let values = try url.resourceValues(forKeys: [.fileSizeKey])
+        var offset = values.fileSize ?? 0
+        guard offset > 0 else { return nil }
+
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+
+        let decoder = JSONDecoder()
+        var trailingPartialLine = Data()
+
+        while offset > 0 {
+            let readSize = min(chunkSize, offset)
+            offset -= readSize
+            try handle.seek(toOffset: UInt64(offset))
+
+            var block = try handle.read(upToCount: readSize) ?? Data()
+            block.append(trailingPartialLine)
+            let lines = block.split(
+                separator: 0x0A,
+                omittingEmptySubsequences: false
+            )
+
+            let firstCompleteLine = offset > 0 ? 1 : 0
+            if firstCompleteLine < lines.count {
+                for line in lines[firstCompleteLine...].reversed() {
+                    let data = Data(line)
+                    guard isLifecycleLine(data),
+                          let envelope = try? decoder.decode(CodexEnvelope.self, from: data),
+                          let lifecycle = lifecycleEvent(from: envelope) else {
+                        continue
+                    }
+                    return lifecycle
+                }
+            }
+
+            trailingPartialLine = offset > 0
+                ? lines.first.map { Data($0) } ?? Data()
+                : Data()
+        }
+
+        return nil
+    }
+
+    private static func isLifecycleLine(_ line: Data) -> Bool {
+        guard let prefix = String(data: line.prefix(2_048), encoding: .utf8) else {
+            return false
+        }
+        return prefix.contains("\"type\":\"task_started\"") ||
+            prefix.contains("\"type\":\"task_complete\"") ||
+            prefix.contains("\"type\":\"turn_aborted\"")
+    }
+
+    private static func lifecycleEvent(from envelope: CodexEnvelope) -> LifecycleEvent? {
+        let payload = envelope.payload
+        switch payload.type ?? envelope.type {
+        case "task_started":
+            return LifecycleEvent(
+                state: .running,
+                updatedAt: payload.startedAt.map(Date.init(timeIntervalSince1970:)),
+                duration: 0
+            )
+        case "task_complete":
+            return LifecycleEvent(
+                state: .completed,
+                updatedAt: payload.completedAt.map(Date.init(timeIntervalSince1970:)),
+                duration: (payload.durationMS ?? 0) / 1_000
+            )
+        case "turn_aborted":
+            return LifecycleEvent(
+                state: .failed,
+                updatedAt: payload.completedAt.map(Date.init(timeIntervalSince1970:)),
+                duration: (payload.durationMS ?? 0) / 1_000
+            )
+        default:
+            return nil
+        }
     }
 
     static func forEachLine(
