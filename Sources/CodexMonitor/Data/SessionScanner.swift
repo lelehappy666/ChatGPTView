@@ -5,6 +5,7 @@ enum SessionScanner {
         let state: ProjectRunState
         let updatedAt: Date?
         let duration: TimeInterval
+        let turnID: String?
     }
 
     static func scan(root: URL) async throws -> [SessionSummary] {
@@ -41,6 +42,8 @@ enum SessionScanner {
         var cwd: String?
         var sessionID: String?
         var agentNickname: String?
+        var sessionTitle: String?
+        var turnID: String?
         var tokens = 0
         var longestTaskDuration: TimeInterval = 0
         var state: ProjectRunState = .completed
@@ -62,15 +65,22 @@ enum SessionScanner {
                 timestamp = payload.timestamp.flatMap(parseTimestamp)
                 sessionID = payload.id ?? payload.sessionID
                 agentNickname = payload.agentNickname
+            case "user_message":
+                if sessionTitle == nil {
+                    sessionTitle = readableSessionTitle(from: payload.message)
+                }
             case "task_started":
                 state = .running
+                turnID = payload.turnID
                 updatedAt = payload.startedAt.map(Date.init(timeIntervalSince1970:)) ?? updatedAt
             case "task_complete":
                 state = .completed
+                turnID = payload.turnID
                 longestTaskDuration = max(longestTaskDuration, (payload.durationMS ?? 0) / 1_000)
                 updatedAt = payload.completedAt.map(Date.init(timeIntervalSince1970:)) ?? updatedAt
             case "turn_aborted":
                 state = .failed
+                turnID = payload.turnID
                 longestTaskDuration = max(longestTaskDuration, (payload.durationMS ?? 0) / 1_000)
                 updatedAt = payload.completedAt.map(Date.init(timeIntervalSince1970:)) ?? updatedAt
             case "token_count":
@@ -92,6 +102,7 @@ enum SessionScanner {
                 updatedAt = lifecycleUpdatedAt
             }
             longestTaskDuration = max(longestTaskDuration, lifecycle.duration)
+            turnID = lifecycle.turnID
         }
 
         guard let timestamp, let cwd else {
@@ -103,6 +114,8 @@ enum SessionScanner {
             projectName: projectName(for: cwd, homeDirectory: homeDirectory),
             sessionID: sessionID ?? url.deletingPathExtension().lastPathComponent,
             agentNickname: agentNickname,
+            sessionTitle: sessionTitle,
+            turnID: turnID,
             totalTokens: tokens,
             longestTaskDuration: longestTaskDuration,
             state: state,
@@ -131,7 +144,18 @@ enum SessionScanner {
             prefix.contains("\"type\":\"task_started\"") ||
             prefix.contains("\"type\":\"task_complete\"") ||
             prefix.contains("\"type\":\"turn_aborted\"") ||
+            prefix.contains("\"type\":\"user_message\"") ||
             prefix.contains("\"type\":\"token_count\"")
+    }
+
+    private static func readableSessionTitle(from message: String?) -> String? {
+        guard let message else { return nil }
+        let title = message
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty && !$0.hasPrefix("<") && !$0.hasPrefix("# AGENTS") }
+        guard let title else { return nil }
+        return String(title.prefix(24))
     }
 
     private static func parseTimestamp(_ value: String) -> Date? {
@@ -206,19 +230,22 @@ enum SessionScanner {
             return LifecycleEvent(
                 state: .running,
                 updatedAt: payload.startedAt.map(Date.init(timeIntervalSince1970:)),
-                duration: 0
+                duration: 0,
+                turnID: payload.turnID
             )
         case "task_complete":
             return LifecycleEvent(
                 state: .completed,
                 updatedAt: payload.completedAt.map(Date.init(timeIntervalSince1970:)),
-                duration: (payload.durationMS ?? 0) / 1_000
+                duration: (payload.durationMS ?? 0) / 1_000,
+                turnID: payload.turnID
             )
         case "turn_aborted":
             return LifecycleEvent(
                 state: .failed,
                 updatedAt: payload.completedAt.map(Date.init(timeIntervalSince1970:)),
-                duration: (payload.durationMS ?? 0) / 1_000
+                duration: (payload.durationMS ?? 0) / 1_000,
+                turnID: payload.turnID
             )
         default:
             return nil

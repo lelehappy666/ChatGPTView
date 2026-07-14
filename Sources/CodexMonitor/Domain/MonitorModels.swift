@@ -33,13 +33,18 @@ struct SessionActivity: Identifiable, Equatable, Sendable {
     let displayName: String
     let state: ProjectRunState
     let updatedAt: Date
+    let turnID: String?
 }
 
 enum SessionDisplayName {
-    static func make(agentNickname: String?, startedAt: Date) -> String {
+    static func make(agentNickname: String?, sessionTitle: String?, startedAt: Date) -> String {
         if let agentNickname,
            !agentNickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return agentNickname
+        }
+        if let sessionTitle,
+           !sessionTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return sessionTitle
         }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")

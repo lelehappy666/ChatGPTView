@@ -18,25 +18,23 @@ final class ProjectCompletionDetectorTests: XCTestCase {
             session("same", project: "项目", state: .completed, at: 100),
             session("same", project: "项目", state: .completed, at: 101)
         ]).isEmpty)
-        XCTAssertEqual(
-            detector.completedSessions(in: [
-                session("same", project: "项目", state: .completed, at: 102)
-            ]).map(\.id),
-            ["same"]
-        )
+        XCTAssertTrue(detector.completedSessions(in: [
+            session("same", project: "项目", state: .completed, at: 102)
+        ]).isEmpty)
     }
 
     func testCompletedSessionNotifiesWhileAnotherSessionInSameProjectRuns() {
         var detector = SessionCompletionDetector()
-        let running = session("running", project: "Replaypoker", state: .running, at: 100)
+        let firstRunning = session("first", project: "Replaypoker", state: .running, at: 100)
+        let secondRunning = session("second", project: "Replaypoker", state: .running, at: 100)
 
-        XCTAssertTrue(detector.completedSessions(in: [running]).isEmpty)
+        XCTAssertTrue(detector.completedSessions(in: [firstRunning, secondRunning]).isEmpty)
         XCTAssertEqual(
             detector.completedSessions(in: [
-                running,
-                session("completed", project: "Replaypoker", state: .completed, at: 101)
+                session("first", project: "Replaypoker", state: .completed, at: 101),
+                secondRunning
             ]).map(\.id),
-            ["completed"]
+            ["first"]
         )
     }
 
@@ -57,7 +55,9 @@ final class ProjectCompletionDetectorTests: XCTestCase {
         var detector = SessionCompletionDetector()
         let completed = session("a", project: "项目", state: .completed, at: 101)
 
-        XCTAssertTrue(detector.completedSessions(in: []).isEmpty)
+        XCTAssertTrue(detector.completedSessions(in: [
+            session("a", project: "项目", state: .running, at: 100)
+        ]).isEmpty)
         XCTAssertEqual(detector.completedSessions(in: [completed]).map(\.id), ["a"])
         XCTAssertTrue(detector.completedSessions(in: [completed]).isEmpty)
     }
@@ -65,36 +65,103 @@ final class ProjectCompletionDetectorTests: XCTestCase {
     func testSameSessionCanNotifyAgainAtLaterCompletionTime() {
         var detector = SessionCompletionDetector()
 
-        XCTAssertTrue(detector.completedSessions(in: []).isEmpty)
+        XCTAssertTrue(detector.completedSessions(in: [
+            session("a", project: "项目", state: .running, at: 100, turnID: "turn-1")
+        ]).isEmpty)
         XCTAssertEqual(
             detector.completedSessions(in: [
-                session("a", project: "项目", state: .completed, at: 101)
+                session("a", project: "项目", state: .completed, at: 101, turnID: "turn-1")
             ]).map(\.id),
             ["a"]
         )
         XCTAssertTrue(detector.completedSessions(in: [
-            session("a", project: "项目", state: .running, at: 102)
+            session("a", project: "项目", state: .running, at: 102, turnID: "turn-2")
         ]).isEmpty)
         XCTAssertEqual(
             detector.completedSessions(in: [
-                session("a", project: "项目", state: .completed, at: 103)
+                session("a", project: "项目", state: .completed, at: 103, turnID: "turn-2")
             ]).map(\.id),
             ["a"]
         )
+    }
+
+    func testFastCompletedTurnNotifiesEvenWhenRunningSnapshotWasMissed() {
+        var detector = SessionCompletionDetector()
+
+        XCTAssertTrue(detector.completedSessions(in: [
+            session("a", project: "项目", state: .running, at: 100, turnID: "turn-a")
+        ]).isEmpty)
+        XCTAssertEqual(detector.completedSessions(in: [
+            session("a", project: "项目", state: .completed, at: 101, turnID: "turn-b")
+        ]).map(\.turnID), ["turn-b"])
+    }
+
+    func testMissingTurnIDNeverTriggersCompletionNotification() {
+        var detector = SessionCompletionDetector()
+
+        XCTAssertTrue(detector.completedSessions(in: [
+            session("a", project: "项目", state: .running, at: 100, turnID: nil)
+        ]).isEmpty)
+        XCTAssertTrue(detector.completedSessions(in: [
+            session("a", project: "项目", state: .completed, at: 101, turnID: nil)
+        ]).isEmpty)
+    }
+
+    func testCompletionConfirmationRejectsSessionThatAlreadyStartedNextTurn() {
+        let completed = session(
+            "a",
+            project: "项目",
+            state: .completed,
+            at: 101,
+            turnID: "turn-a"
+        )
+        let nextRunning = session(
+            "a",
+            project: "项目",
+            state: .running,
+            at: 102,
+            turnID: "turn-b"
+        )
+
+        XCTAssertFalse(CompletionConfirmation.matches(
+            candidate: completed,
+            latest: nextRunning,
+            now: Date(timeIntervalSince1970: 103),
+            freshness: 15
+        ))
+    }
+
+    func testCompletionConfirmationAcceptsUnchangedCompletedTurn() {
+        let completed = session(
+            "a",
+            project: "项目",
+            state: .completed,
+            at: 101,
+            turnID: "turn-a"
+        )
+
+        XCTAssertTrue(CompletionConfirmation.matches(
+            candidate: completed,
+            latest: completed,
+            now: Date(timeIntervalSince1970: 103),
+            freshness: 15
+        ))
     }
 
     private func session(
         _ id: String,
         project: String,
         state: ProjectRunState,
-        at timestamp: TimeInterval
+        at timestamp: TimeInterval,
+        turnID: String? = "turn"
     ) -> SessionActivity {
         SessionActivity(
             id: id,
             projectName: project,
             displayName: id,
             state: state,
-            updatedAt: Date(timeIntervalSince1970: timestamp)
+            updatedAt: Date(timeIntervalSince1970: timestamp),
+            turnID: turnID
         )
     }
 }

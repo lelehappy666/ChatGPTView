@@ -11,6 +11,8 @@ struct CodexEnvelope: Decodable {
         let id: String?
         let sessionID: String?
         let agentNickname: String?
+        let turnID: String?
+        let message: String?
         let startedAt: Double?
         let completedAt: Double?
         let durationMS: Double?
@@ -25,8 +27,10 @@ struct CodexEnvelope: Decodable {
             case id
             case reason
             case info
+            case message
             case sessionID = "session_id"
             case agentNickname = "agent_nickname"
+            case turnID = "turn_id"
             case startedAt = "started_at"
             case completedAt = "completed_at"
             case durationMS = "duration_ms"
@@ -86,6 +90,8 @@ struct SessionSummary: Equatable, Sendable {
     let projectName: String?
     let sessionID: String
     let agentNickname: String?
+    let sessionTitle: String?
+    let turnID: String?
     let totalTokens: Int
     let longestTaskDuration: TimeInterval
     let state: ProjectRunState
@@ -99,6 +105,8 @@ struct SessionSummary: Equatable, Sendable {
         projectName: String?,
         sessionID: String = "",
         agentNickname: String? = nil,
+        sessionTitle: String? = nil,
+        turnID: String? = nil,
         totalTokens: Int,
         longestTaskDuration: TimeInterval,
         state: ProjectRunState,
@@ -111,6 +119,8 @@ struct SessionSummary: Equatable, Sendable {
         self.projectName = projectName
         self.sessionID = sessionID
         self.agentNickname = agentNickname
+        self.sessionTitle = sessionTitle
+        self.turnID = turnID
         self.totalTokens = totalTokens
         self.longestTaskDuration = longestTaskDuration
         self.state = state

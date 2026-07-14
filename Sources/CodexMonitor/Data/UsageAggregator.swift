@@ -61,10 +61,12 @@ enum UsageAggregator {
                 projectName: item.name,
                 displayName: SessionDisplayName.make(
                     agentNickname: item.session.agentNickname,
+                    sessionTitle: item.session.sessionTitle,
                     startedAt: item.session.date
                 ),
                 state: item.session.state,
-                updatedAt: item.session.updatedAt
+                updatedAt: item.session.updatedAt,
+                turnID: item.session.turnID
             )
         }
         .sorted {

@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .dropFirst()
             .sink { [weak self] snapshot in
                 guard let self else { return }
+                cancelSupersededCompletions(using: snapshot.sessions)
                 for session in completionDetector.completedSessions(in: snapshot.sessions) {
                     scheduleCompletionNotification(for: session)
                 }
@@ -59,26 +60,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func scheduleCompletionNotification(for session: SessionActivity) {
         let notificationFreshness: TimeInterval = 15
-        guard Date.now.timeIntervalSince(session.updatedAt) <= notificationFreshness else {
+        guard let turnID = session.turnID,
+              Date.now.timeIntervalSince(session.updatedAt) <= notificationFreshness else {
             return
         }
 
-        pendingCompletionTasks[session.id]?.cancel()
-        pendingCompletionUpdates[session.id] = session.updatedAt
-        pendingCompletionTasks[session.id] = Task { [weak self] in
+        let completionKey = "\(session.id)::\(turnID)"
+        pendingCompletionTasks[completionKey]?.cancel()
+        pendingCompletionUpdates[completionKey] = session.updatedAt
+        pendingCompletionTasks[completionKey] = Task { [weak self] in
             guard let self else { return }
-            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
             guard !Task.isCancelled else { return }
 
             store?.requestRefresh()
-            try? await Task.sleep(nanoseconds: 900_000_000)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
             guard !Task.isCancelled,
-                  pendingCompletionUpdates[session.id] == session.updatedAt,
+                  pendingCompletionUpdates[completionKey] == session.updatedAt,
                   let latest = store?.snapshot.sessions.first(where: { $0.id == session.id }),
-                  latest.state == .completed,
-                  latest.updatedAt == session.updatedAt,
-                  Date.now.timeIntervalSince(latest.updatedAt) <= notificationFreshness else {
-                clearPendingCompletion(id: session.id, update: session.updatedAt)
+                  CompletionConfirmation.matches(
+                    candidate: session,
+                    latest: latest,
+                    now: .now,
+                    freshness: notificationFreshness
+                  ) else {
+                clearPendingCompletion(key: completionKey, update: session.updatedAt)
                 return
             }
 
@@ -86,13 +92,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 projectName: session.projectName,
                 sessionName: session.displayName
             )
-            clearPendingCompletion(id: session.id, update: session.updatedAt)
+            clearPendingCompletion(key: completionKey, update: session.updatedAt)
         }
     }
 
-    private func clearPendingCompletion(id: String, update: Date) {
-        guard pendingCompletionUpdates[id] == update else { return }
-        pendingCompletionUpdates.removeValue(forKey: id)
-        pendingCompletionTasks.removeValue(forKey: id)
+    private func cancelSupersededCompletions(using sessions: [SessionActivity]) {
+        for latest in sessions {
+            let currentKey = latest.turnID.map { "\(latest.id)::\($0)" }
+            let obsoleteKeys = pendingCompletionTasks.keys.filter {
+                $0.hasPrefix("\(latest.id)::") && $0 != currentKey
+            }
+            for key in obsoleteKeys {
+                pendingCompletionTasks[key]?.cancel()
+                pendingCompletionTasks.removeValue(forKey: key)
+                pendingCompletionUpdates.removeValue(forKey: key)
+            }
+        }
+    }
+
+    private func clearPendingCompletion(key: String, update: Date) {
+        guard pendingCompletionUpdates[key] == update else { return }
+        pendingCompletionUpdates.removeValue(forKey: key)
+        pendingCompletionTasks.removeValue(forKey: key)
     }
 }

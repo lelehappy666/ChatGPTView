@@ -19,6 +19,25 @@ final class JSONLDecoderTests: XCTestCase {
         XCTAssertEqual(summary.agentNickname, "Carson")
     }
 
+    func testLifecycleExtractsExactTurnIDAndReadableRootSessionTitle() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("jsonl")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let contents = """
+        {"type":"session_meta","payload":{"type":"session_meta","id":"session-456","timestamp":"2026-07-14T06:36:17Z","cwd":"/Users/test/Projects/Replaypoker"}}
+        {"type":"event_msg","payload":{"type":"user_message","message":"修复牌桌结算状态\\n不要改变现有布局"}}
+        {"type":"event_msg","payload":{"type":"task_started","turn_id":"turn-123","started_at":1784010977}}
+        {"type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-123","completed_at":1784010988}}
+        """
+        try contents.write(to: url, atomically: true, encoding: .utf8)
+
+        let summary = try XCTUnwrap(SessionScanner.parseFile(url))
+
+        XCTAssertEqual(summary.turnID, "turn-123")
+        XCTAssertEqual(summary.sessionTitle, "修复牌桌结算状态")
+    }
+
     func testSessionIdentityFallsBackToFileName() throws {
         let summary = try XCTUnwrap(
             SessionScanner.parseFile(fixtureURL(named: "session-running"))

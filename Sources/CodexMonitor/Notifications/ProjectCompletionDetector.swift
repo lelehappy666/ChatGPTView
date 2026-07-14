@@ -1,7 +1,7 @@
 import Foundation
 
 struct SessionCompletionDetector {
-    private var latestObservedSessions: [String: SessionActivity]?
+    private var seenCompletedTurns: Set<String>?
 
     mutating func completedSessions(in sessions: [SessionActivity]) -> [SessionActivity] {
         let newestSessions = sessions
@@ -20,30 +20,36 @@ struct SessionCompletionDetector {
                 return $0.id < $1.id
             }
 
-        guard var observedSessions = latestObservedSessions else {
-            latestObservedSessions = Dictionary(
-                uniqueKeysWithValues: newestSessions.map { ($0.id, $0) }
-            )
+        let completedWithIdentity = newestSessions.compactMap { session -> (String, SessionActivity)? in
+            guard session.state == .completed, let turnID = session.turnID else { return nil }
+            return ("\(session.id)::\(turnID)", session)
+        }
+
+        guard var seenCompletedTurns else {
+            self.seenCompletedTurns = Set(completedWithIdentity.map(\.0))
             return []
         }
 
-        let completed = newestSessions.filter { session in
-            guard session.state == .completed,
-                  let previous = observedSessions[session.id] else {
-                return false
-            }
-            return previous.state == .running &&
-                session.updatedAt > previous.updatedAt
+        let completed = completedWithIdentity.compactMap { key, session in
+            seenCompletedTurns.insert(key).inserted ? session : nil
         }
-
-        for session in newestSessions {
-            guard let previous = observedSessions[session.id],
-                  previous.updatedAt > session.updatedAt else {
-                observedSessions[session.id] = session
-                continue
-            }
-        }
-        latestObservedSessions = observedSessions
+        self.seenCompletedTurns = seenCompletedTurns
         return completed
+    }
+}
+
+enum CompletionConfirmation {
+    static func matches(
+        candidate: SessionActivity,
+        latest: SessionActivity,
+        now: Date,
+        freshness: TimeInterval
+    ) -> Bool {
+        guard let candidateTurnID = candidate.turnID else { return false }
+        return latest.id == candidate.id &&
+            latest.state == .completed &&
+            latest.turnID == candidateTurnID &&
+            latest.updatedAt == candidate.updatedAt &&
+            now.timeIntervalSince(latest.updatedAt) <= freshness
     }
 }
