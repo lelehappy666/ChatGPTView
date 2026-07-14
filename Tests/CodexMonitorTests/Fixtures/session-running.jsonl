@@ -1,0 +1,4 @@
+{"type":"session_meta","payload":{"type":"session_meta","timestamp":"2026-07-14T09:00:00Z","cwd":"/Users/test/Projects/CodexMonitor"}}
+{"type":"event_msg","payload":{"type":"task_started","started_at":1783990800}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"total_tokens":100000}},"rate_limits":{"primary":{"used_percent":24.0,"window_minutes":10080,"resets_at":1784510985}}}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"total_tokens":142000}},"rate_limits":{"primary":{"used_percent":25.0,"window_minutes":10080,"resets_at":1784510985}}}}

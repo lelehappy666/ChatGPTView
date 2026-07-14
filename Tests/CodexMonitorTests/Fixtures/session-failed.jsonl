@@ -1,0 +1,4 @@
+{"type":"session_meta","payload":{"type":"session_meta","timestamp":"2026-07-13T09:00:00Z","cwd":"/Users/test/Projects/DataSync"}}
+{"type":"event_msg","payload":{"type":"task_started","started_at":1783904400}}
+{"type":"event_msg","payload":{"type":"turn_aborted","completed_at":1783908000,"duration_ms":3600000,"reason":"tool_failed"}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"total_tokens":310000}}}}

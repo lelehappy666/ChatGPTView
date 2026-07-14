@@ -15,7 +15,8 @@ let package = Package(
         .testTarget(
             name: "CodexMonitorTests",
             dependencies: ["CodexMonitor"],
-            path: "Tests/CodexMonitorTests"
+            path: "Tests/CodexMonitorTests",
+            exclude: ["Fixtures"]
         )
     ]
 )
