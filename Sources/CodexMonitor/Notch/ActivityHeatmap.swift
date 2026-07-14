@@ -4,12 +4,7 @@ struct ActivityHeatmap: View {
     let days: [UsageDay]
 
     private var paddedDays: [UsageDay] {
-        let visible = Array(days.suffix(56))
-        let missing = max(0, 56 - visible.count)
-        let placeholders = (0..<missing).map {
-            UsageDay(date: Date(timeIntervalSince1970: Double($0)), tokens: 0, sessions: 0)
-        }
-        return placeholders + visible
+        ActivityGrid.days(from: days)
     }
 
     private var maximumTokens: Int {
@@ -25,7 +20,7 @@ struct ActivityHeatmap: View {
                 RoundedRectangle(cornerRadius: 2)
                     .fill(color(for: day.tokens))
                     .frame(width: 11, height: 11)
-                    .help(day.tokens == 0 ? "无活动" : MetricFormatter.tokens(day.tokens))
+                    .help(ActivityTooltip.text(for: day))
             }
         }
         .frame(width: 142, height: 95, alignment: .leading)

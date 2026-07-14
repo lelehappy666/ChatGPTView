@@ -64,8 +64,11 @@ private struct ProjectTickerView: View {
         HStack(spacing: 5) {
             Circle()
                 .fill(statusColor)
-                .frame(width: 6, height: 6)
-                .shadow(color: statusColor.opacity(0.7), radius: project.state == .running ? 3 : 0)
+                .frame(
+                    width: project.state == .running ? 8 : 6,
+                    height: project.state == .running ? 8 : 6
+                )
+                .shadow(color: statusColor.opacity(0.9), radius: project.state == .running ? 4 : 0)
 
             Text(project.name)
                 .font(.system(size: 9, weight: .semibold))
@@ -74,7 +77,7 @@ private struct ProjectTickerView: View {
                 .frame(maxWidth: 104, alignment: .leading)
 
             Text(statusText)
-                .font(.system(size: 8, weight: .medium))
+                .font(.system(size: project.state == .running ? 9 : 8, weight: .semibold))
                 .foregroundStyle(statusColor)
                 .fixedSize()
 
@@ -87,7 +90,11 @@ private struct ProjectTickerView: View {
         }
         .padding(.horizontal, 6)
         .frame(height: 22)
-        .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 7))
+        .background(statusBackground, in: RoundedRectangle(cornerRadius: 7))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(statusBorder, lineWidth: project.state == .running ? 1 : 0)
+        }
         .onHover { isPaused = $0 }
         .help("\(project.name) · \(statusText)")
     }
@@ -102,10 +109,22 @@ private struct ProjectTickerView: View {
 
     private var statusColor: Color {
         switch project.state {
-        case .running: return Color(red: 0.44, green: 0.65, blue: 1)
+        case .running: return RGBToken.runningAccent.color
         case .completed: return Color(red: 0.38, green: 0.87, blue: 0.69)
         case .failed: return Color(red: 1, green: 0.42, blue: 0.44)
         }
+    }
+
+    private var statusBackground: Color {
+        project.state == .running
+            ? RGBToken.runningAccent.color.opacity(0.20)
+            : Color.primary.opacity(0.07)
+    }
+
+    private var statusBorder: Color {
+        project.state == .running
+            ? RGBToken.runningAccent.color.opacity(0.75)
+            : .clear
     }
 }
 
