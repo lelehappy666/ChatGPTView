@@ -2,8 +2,12 @@ import XCTest
 @testable import CodexMonitor
 
 final class VisualFeedbackTests: XCTestCase {
-    func testRunningAccentUsesHighContrastSystemBlue() {
-        XCTAssertEqual(RGBToken.runningAccent.hex, "0A84FF")
+    func testRunningAccentUsesOpaqueHighContrastOrange() {
+        XCTAssertEqual(RGBToken.runningAccent.hex, "FF9F0A")
+    }
+
+    func testActivityHoverPresentationHasNoDelay() {
+        XCTAssertEqual(ActivityTooltip.presentationDelayMilliseconds, 0)
     }
 
     func testActivityTooltipIncludesDateTokensAndSessions() {

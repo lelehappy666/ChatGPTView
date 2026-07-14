@@ -16,17 +16,6 @@ struct DailyActivityPage: View {
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 5) {
                     ActivityHeatmap(days: snapshot.dailyActivity)
-                    HStack(spacing: 3) {
-                        Text("少")
-                        ForEach(0..<3, id: \.self) { index in
-                            RoundedRectangle(cornerRadius: 1.5)
-                                .fill(Color(red: 0.30 + Double(index) * 0.16, green: 0.27 + Double(index) * 0.12, blue: 0.42 + Double(index) * 0.18))
-                                .frame(width: 8, height: 8)
-                        }
-                        Text("多")
-                    }
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
                 }
                 .frame(width: 142, alignment: .topLeading)
 

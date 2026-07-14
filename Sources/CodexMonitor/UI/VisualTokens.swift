@@ -6,7 +6,7 @@ struct RGBToken: Equatable, Sendable {
     let green: UInt8
     let blue: UInt8
 
-    static let runningAccent = RGBToken(red: 10, green: 132, blue: 255)
+    static let runningAccent = RGBToken(red: 255, green: 159, blue: 10)
 
     var hex: String {
         String(format: "%02X%02X%02X", red, green, blue)
@@ -22,6 +22,8 @@ struct RGBToken: Equatable, Sendable {
 }
 
 enum ActivityTooltip {
+    static let presentationDelayMilliseconds = 0
+
     static func text(
         for day: UsageDay,
         calendar: Calendar = .current

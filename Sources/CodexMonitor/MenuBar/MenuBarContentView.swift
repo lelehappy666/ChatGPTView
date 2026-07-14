@@ -77,8 +77,19 @@ private struct ProjectTickerView: View {
                 .frame(maxWidth: 104, alignment: .leading)
 
             Text(statusText)
-                .font(.system(size: project.state == .running ? 9 : 8, weight: .semibold))
-                .foregroundStyle(statusColor)
+                .font(.system(size: project.state == .running ? 9 : 8, weight: .bold))
+                .foregroundStyle(
+                    project.state == .running
+                        ? Color.black.opacity(0.88)
+                        : statusColor
+                )
+                .padding(.horizontal, project.state == .running ? 6 : 0)
+                .frame(height: project.state == .running ? 17 : nil)
+                .background {
+                    if project.state == .running {
+                        Capsule().fill(RGBToken.runningAccent.color)
+                    }
+                }
                 .fixedSize()
 
             Divider().frame(height: 12).opacity(0.25)
@@ -116,15 +127,11 @@ private struct ProjectTickerView: View {
     }
 
     private var statusBackground: Color {
-        project.state == .running
-            ? RGBToken.runningAccent.color.opacity(0.20)
-            : Color.primary.opacity(0.07)
+        Color.primary.opacity(0.07)
     }
 
     private var statusBorder: Color {
-        project.state == .running
-            ? RGBToken.runningAccent.color.opacity(0.75)
-            : .clear
+        .clear
     }
 }
 
