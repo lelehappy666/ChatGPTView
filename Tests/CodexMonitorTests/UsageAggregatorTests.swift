@@ -45,18 +45,34 @@ final class UsageAggregatorTests: XCTestCase {
         XCTAssertEqual(snapshot.projects.map(\.name), ["Broken", "Active"])
     }
 
-    func testCompletedProjectExpiresAfterThirtyMinutes() {
+    func testAllProjectStatesExpireAfterSixtySeconds() {
         let now = date(2026, 7, 14, 12)
-        let oldCompleted = summary(
-            date: now,
-            project: "Old",
-            tokens: 10,
-            state: .completed,
-            updatedAt: now.addingTimeInterval(-1_801)
-        )
+        let staleProjects = [
+            summary(
+                date: now,
+                project: "运行",
+                tokens: 10,
+                state: .running,
+                updatedAt: now.addingTimeInterval(-60)
+            ),
+            summary(
+                date: now,
+                project: "完成",
+                tokens: 10,
+                state: .completed,
+                updatedAt: now.addingTimeInterval(-60)
+            ),
+            summary(
+                date: now,
+                project: "报错",
+                tokens: 10,
+                state: .failed,
+                updatedAt: now.addingTimeInterval(-60)
+            )
+        ]
 
         let snapshot = UsageAggregator.makeSnapshot(
-            sessions: [oldCompleted],
+            sessions: staleProjects,
             now: now,
             calendar: utcCalendar
         )

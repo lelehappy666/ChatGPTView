@@ -34,16 +34,14 @@ enum UsageAggregator {
                 .max(by: { $0.updatedAt < $1.updatedAt }) else {
                 return nil
             }
-            if latest.state == .completed,
-               now.timeIntervalSince(latest.updatedAt) > 1_800 {
-                return nil
-            }
             return ProjectActivity(
                 name: projectName,
                 state: latest.state,
                 updatedAt: latest.updatedAt
             )
-        }.sortedForMenu
+        }
+        .visibleForMenu(at: now)
+        .sortedForMenu
 
         let activeDates = Set(
             dailyActivity

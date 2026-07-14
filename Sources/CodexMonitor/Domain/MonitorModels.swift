@@ -28,6 +28,15 @@ struct ProjectActivity: Identifiable, Equatable, Sendable {
 }
 
 extension Array where Element == ProjectActivity {
+    func visibleForMenu(at now: Date = .now) -> [ProjectActivity] {
+        filter {
+            ProjectVisibilityPolicy.isVisible(
+                updatedAt: $0.updatedAt,
+                now: now
+            )
+        }
+    }
+
     var sortedForMenu: [ProjectActivity] {
         sorted {
             if $0.state.rawValue != $1.state.rawValue {
@@ -35,6 +44,14 @@ extension Array where Element == ProjectActivity {
             }
             return $0.updatedAt > $1.updatedAt
         }
+    }
+}
+
+enum ProjectVisibilityPolicy {
+    static let inactivityTimeout: TimeInterval = 60
+
+    static func isVisible(updatedAt: Date, now: Date) -> Bool {
+        now.timeIntervalSince(updatedAt) < inactivityTimeout
     }
 }
 

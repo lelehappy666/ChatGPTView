@@ -21,12 +21,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { [completionNotifier] in
             await completionNotifier.ensureAuthorization()
         }
-        snapshotCancellable = store.$snapshot.sink { [weak self] snapshot in
-            guard let self else { return }
-            for project in completionDetector.completedProjects(in: snapshot.projects) {
-                completionNotifier.notify(projectName: project.name)
+        snapshotCancellable = store.$snapshot
+            .dropFirst()
+            .sink { [weak self] snapshot in
+                guard let self else { return }
+                for project in completionDetector.completedProjects(in: snapshot.projects) {
+                    completionNotifier.notify(projectName: project.name)
+                }
             }
-        }
 
         let watcher = SessionDirectoryWatcher(root: sessionsRoot) { [weak store] in
             Task { @MainActor in

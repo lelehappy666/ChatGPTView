@@ -1,15 +1,29 @@
+import Foundation
+
 struct ProjectCompletionDetector {
-    private var previousStates: [String: ProjectRunState]?
+    private var latestObservedUpdates: [String: Date]?
 
     mutating func completedProjects(in projects: [ProjectActivity]) -> [ProjectActivity] {
-        let currentStates = Dictionary(
-            uniqueKeysWithValues: projects.map { ($0.name, $0.state) }
-        )
-        defer { previousStates = currentStates }
-
-        guard let previousStates else { return [] }
-        return projects.filter {
-            $0.state == .completed && previousStates[$0.name] == .running
+        guard var observedUpdates = latestObservedUpdates else {
+            latestObservedUpdates = Dictionary(
+                uniqueKeysWithValues: projects.map { ($0.name, $0.updatedAt) }
+            )
+            return []
         }
+
+        let completed = projects.filter { project in
+            guard project.state == .completed else { return false }
+            guard let previousUpdate = observedUpdates[project.name] else { return true }
+            return project.updatedAt > previousUpdate
+        }
+
+        for project in projects {
+            observedUpdates[project.name] = max(
+                observedUpdates[project.name] ?? .distantPast,
+                project.updatedAt
+            )
+        }
+        latestObservedUpdates = observedUpdates
+        return completed
     }
 }

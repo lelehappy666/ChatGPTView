@@ -17,4 +17,27 @@ final class AppIntegrationTests: XCTestCase {
         XCTAssertEqual(PageNavigation.target(from: 2, delta: -30), 2)
         XCTAssertEqual(PageNavigation.target(from: 2, delta: 30), 1)
     }
+
+    func testAppMetadataDeclaresPackagedIcon() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let plistData = try Data(
+            contentsOf: root.appendingPathComponent("Resources/Info.plist")
+        )
+        let plist = try XCTUnwrap(
+            PropertyListSerialization.propertyList(
+                from: plistData,
+                format: nil
+            ) as? [String: Any]
+        )
+
+        XCTAssertEqual(plist["CFBundleIconFile"] as? String, "AppIcon")
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: root.appendingPathComponent("Resources/AppIcon.icns").path
+            )
+        )
+    }
 }

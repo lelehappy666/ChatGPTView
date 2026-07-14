@@ -30,20 +30,17 @@ struct MenuBarContentView: View {
                 )
                 .id(project.id + String(ticker.index))
                 .transition(.move(edge: .bottom).combined(with: .opacity))
-            } else if !store.isLoading {
-                Text("暂无项目")
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(.secondary)
             }
         }
         .frame(height: 22)
-        .onReceive(timer) { _ in
+        .onReceive(timer) { now in
+            ticker.projects = store.snapshot.projects.visibleForMenu(at: now)
             withAnimation(.easeInOut(duration: 0.28)) {
                 ticker.advance()
             }
         }
         .onReceive(store.$snapshot) { snapshot in
-            ticker.projects = snapshot.projects
+            ticker.projects = snapshot.projects.visibleForMenu()
         }
     }
 

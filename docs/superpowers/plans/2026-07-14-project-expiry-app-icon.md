@@ -6,7 +6,7 @@
 
 **架构：** `ProjectVisibilityPolicy` 作为数据聚合和菜单栏共用的时间规则，菜单栏每 4 秒主动清理过期项目。图标由可重复运行的 Swift/Core Graphics 脚本生成主图和 `.icns`，通过 Info.plist 与打包脚本写入应用包。
 
-**技术栈：** Swift 6.2、SwiftUI、AppKit、Core Graphics、XCTest、iconutil、macOS 14+
+**技术栈：** Swift 6.2、SwiftUI、AppKit、Core Graphics、XCTest、macOS 14+
 
 ## 全局约束
 
@@ -14,7 +14,7 @@
 - 所有 Git 提交信息使用中文。
 - 所有项目状态统一使用 60 秒过期时间。
 - 项目过期后顶部不显示“暂无项目”。
-- 完成通知逻辑保持不变。
+- 完成通知按项目更新时间去重，首次真实快照只建立基线。
 - 图标不使用 OpenAI 或 ChatGPT 官方商标图形。
 
 ---
@@ -114,7 +114,32 @@ extension Array where Element == ProjectActivity {
 
 ---
 
-### 任务二：生成原创 macOS 应用图标
+### 任务二：修复完成通知准确性
+
+**文件：**
+- 修改：`Sources/CodexMonitor/Notifications/ProjectCompletionDetector.swift`
+- 修改：`Sources/CodexMonitor/App/AppDelegate.swift`
+- 修改：`Tests/CodexMonitorTests/ProjectCompletionDetectorTests.swift`
+
+- [ ] **步骤一：添加失败测试**
+
+覆盖首次完成快照不提醒、空基线后的快速完成提醒、相同完成时间不重复提醒，以及更晚完成时间再次提醒。
+
+- [ ] **步骤二：运行测试并确认失败**
+
+运行 `swift test --disable-sandbox --filter ProjectCompletionDetectorTests`，确认旧的“必须先观察到进行中”逻辑会漏报快速完成任务。
+
+- [ ] **步骤三：按更新时间实现完成事件去重**
+
+首个真实快照建立项目更新时间基线；后续完成项目的更新时间大于已记录时间时触发一次提醒，并保留历史时间防止项目暂时消失后重复提醒。
+
+- [ ] **步骤四：跳过发布器初始空值并验证**
+
+在 `AppDelegate` 的快照订阅中跳过 `@Published` 自动发送的初始空快照，使首次刷新结果成为历史基线。再次运行专项测试并确认通过。
+
+---
+
+### 任务三：生成原创 macOS 应用图标
 
 **文件：**
 - 新建：`scripts/generate-app-icon.swift`
@@ -145,13 +170,12 @@ icon_512x512.png
 icon_512x512@2x.png
 ```
 
-脚本最后调用：
+脚本最后按 ICNS 规范写入 `icp4` 至 `ic10` 的 PNG 分块：
 
 ```swift
-Process.run(
-    URL(fileURLWithPath: "/usr/bin/iconutil"),
-    arguments: ["-c", "icns", iconsetPath, "-o", outputPath]
-)
+icns.append("icns".data(using: .ascii)!)
+icns.append(totalLength.bigEndianData)
+icns.append(pngChunks)
 ```
 
 - [ ] **步骤二：运行图标生成脚本**
@@ -169,7 +193,7 @@ env DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 
 ---
 
-### 任务三：声明并打包图标资源
+### 任务四：声明并打包图标资源
 
 **文件：**
 - 修改：`Resources/Info.plist`
@@ -222,7 +246,7 @@ cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 ---
 
-### 任务四：打包、验证和更新运行应用
+### 任务五：打包、验证和更新运行应用
 
 - [ ] **步骤一：重新打包并验证图标与签名**
 
