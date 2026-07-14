@@ -18,17 +18,17 @@ struct ActivityHeatmap: View {
 
     var body: some View {
         LazyHGrid(
-            rows: Array(repeating: GridItem(.fixed(8), spacing: 2), count: 7),
-            spacing: 2
+            rows: Array(repeating: GridItem(.fixed(11), spacing: 3), count: 7),
+            spacing: 3
         ) {
             ForEach(Array(paddedDays.enumerated()), id: \.offset) { _, day in
                 RoundedRectangle(cornerRadius: 2)
                     .fill(color(for: day.tokens))
-                    .frame(width: 8, height: 8)
+                    .frame(width: 11, height: 11)
                     .help(day.tokens == 0 ? "无活动" : MetricFormatter.tokens(day.tokens))
             }
         }
-        .frame(width: 108, height: 68, alignment: .leading)
+        .frame(width: 142, height: 95, alignment: .leading)
     }
 
     private func color(for tokens: Int) -> Color {

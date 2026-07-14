@@ -26,9 +26,7 @@ enum SessionScanner {
     }
 
     static func parseFile(_ url: URL) throws -> SessionSummary? {
-        let text = try String(contentsOf: url, encoding: .utf8)
         let decoder = JSONDecoder()
-        let formatter = ISO8601DateFormatter()
 
         var timestamp: Date?
         var cwd: String?
@@ -39,17 +37,17 @@ enum SessionScanner {
         var weeklyUsedPercent: Double?
         var weeklyResetsAt: Date?
 
-        for line in text.split(separator: "\n") {
+        try forEachSummaryLine(in: url) { line in
             guard isRelevant(line),
-                  let envelope = try? decoder.decode(CodexEnvelope.self, from: Data(line.utf8)) else {
-                continue
+                  let envelope = try? decoder.decode(CodexEnvelope.self, from: line) else {
+                return
             }
 
             let payload = envelope.payload
-            switch payload.type {
+            switch payload.type ?? envelope.type {
             case "session_meta":
                 cwd = payload.cwd
-                timestamp = payload.timestamp.flatMap { formatter.date(from: $0) }
+                timestamp = payload.timestamp.flatMap(parseTimestamp)
             case "task_started":
                 state = .running
                 updatedAt = payload.startedAt.map(Date.init(timeIntervalSince1970:)) ?? updatedAt
@@ -63,9 +61,9 @@ enum SessionScanner {
                 updatedAt = payload.completedAt.map(Date.init(timeIntervalSince1970:)) ?? updatedAt
             case "token_count":
                 tokens = payload.info?.totalTokenUsage?.totalTokens ?? tokens
-                if payload.rateLimits?.primary?.windowMinutes == 10_080 {
-                    weeklyUsedPercent = payload.rateLimits?.primary?.usedPercent
-                    weeklyResetsAt = payload.rateLimits?.primary?.resetsAt
+                if let weeklyWindow = payload.rateLimits?.weeklyWindow {
+                    weeklyUsedPercent = weeklyWindow.usedPercent
+                    weeklyResetsAt = weeklyWindow.resetsAt
                         .map(Date.init(timeIntervalSince1970:))
                 }
             default:
@@ -89,11 +87,200 @@ enum SessionScanner {
         )
     }
 
-    private static func isRelevant(_ line: Substring) -> Bool {
-        line.contains("session_meta") ||
-            line.contains("task_started") ||
-            line.contains("task_complete") ||
-            line.contains("turn_aborted") ||
-            line.contains("token_count")
+    private static func isRelevant(_ line: Data) -> Bool {
+        guard let prefix = String(data: line.prefix(2_048), encoding: .utf8) else {
+            return false
+        }
+        return prefix.contains("\"type\":\"session_meta\"") ||
+            prefix.contains("\"type\":\"task_started\"") ||
+            prefix.contains("\"type\":\"task_complete\"") ||
+            prefix.contains("\"type\":\"turn_aborted\"") ||
+            prefix.contains("\"type\":\"token_count\"")
+    }
+
+    private static func parseTimestamp(_ value: String) -> Date? {
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = fractional.date(from: value) {
+            return date
+        }
+        return ISO8601DateFormatter().date(from: value)
+    }
+
+    static func forEachLine(
+        in url: URL,
+        chunkSize: Int = 64 * 1_024,
+        maximumLineSize: Int = 16 * 1_024 * 1_024,
+        body: (Data) -> Void
+    ) throws {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+
+        let newline = Data([0x0A])
+        var buffer = Data()
+        var discardingOversizedLine = false
+
+        while let chunk = try handle.read(upToCount: chunkSize), !chunk.isEmpty {
+            var unread = chunk
+
+            if discardingOversizedLine {
+                guard let newlineRange = unread.firstRange(of: newline) else {
+                    continue
+                }
+                unread.removeSubrange(unread.startIndex..<newlineRange.upperBound)
+                discardingOversizedLine = false
+            }
+
+            buffer.append(unread)
+            while let newlineRange = buffer.firstRange(of: newline) {
+                let line = Data(buffer[..<newlineRange.lowerBound])
+                body(line)
+                buffer.removeSubrange(buffer.startIndex..<newlineRange.upperBound)
+            }
+
+            if buffer.count > maximumLineSize {
+                buffer.removeAll(keepingCapacity: false)
+                discardingOversizedLine = true
+            }
+        }
+
+        if !discardingOversizedLine, !buffer.isEmpty {
+            body(buffer)
+        }
+    }
+
+    private static func forEachSummaryLine(
+        in url: URL,
+        body: (Data) -> Void
+    ) throws {
+        let values = try url.resourceValues(forKeys: [.fileSizeKey])
+        let fileSize = values.fileSize ?? 0
+        let fullScanThreshold = 4 * 1_024 * 1_024
+        guard fileSize > fullScanThreshold else {
+            try forEachLine(in: url, body: body)
+            return
+        }
+
+        let segmentSize = 1 * 1_024 * 1_024
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+
+        let head = try handle.read(upToCount: segmentSize) ?? Data()
+        forEachCompleteLine(
+            in: head,
+            skippingInitialPartialLine: false,
+            includeTrailingLine: false,
+            body: body
+        )
+
+        let tailOffset = max(0, fileSize - segmentSize)
+        try handle.seek(toOffset: UInt64(tailOffset))
+        let tail = try handle.readToEnd() ?? Data()
+        forEachCompleteLine(
+            in: tail,
+            skippingInitialPartialLine: tailOffset > 0,
+            includeTrailingLine: true,
+            body: body
+        )
+    }
+
+    private static func forEachCompleteLine(
+        in data: Data,
+        skippingInitialPartialLine: Bool,
+        includeTrailingLine: Bool,
+        body: (Data) -> Void
+    ) {
+        var start = data.startIndex
+        if skippingInitialPartialLine {
+            guard let newline = data[start...].firstIndex(of: 0x0A) else { return }
+            start = data.index(after: newline)
+        }
+
+        while start < data.endIndex,
+              let newline = data[start...].firstIndex(of: 0x0A) {
+            body(Data(data[start..<newline]))
+            start = data.index(after: newline)
+        }
+
+        if includeTrailingLine, start < data.endIndex {
+            body(Data(data[start..<data.endIndex]))
+        }
+    }
+}
+
+final class IncrementalSessionScanner: @unchecked Sendable {
+    typealias Parser = @Sendable (URL) throws -> SessionSummary?
+
+    private struct Fingerprint: Equatable {
+        let size: Int
+        let modificationDate: Date
+    }
+
+    private struct Entry {
+        let fingerprint: Fingerprint
+        let summary: SessionSummary?
+    }
+
+    private let parser: Parser
+    private let lock = NSLock()
+    private var entries: [String: Entry] = [:]
+
+    init(parser: @escaping Parser = { url in try SessionScanner.parseFile(url) }) {
+        self.parser = parser
+    }
+
+    func scan(root: URL) async throws -> [SessionSummary] {
+        try await Task.detached(priority: .utility) { [self] in
+            try scanSynchronously(root: root)
+        }.value
+    }
+
+    private func scanSynchronously(root: URL) throws -> [SessionSummary] {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: [
+                .isRegularFileKey,
+                .fileSizeKey,
+                .contentModificationDateKey
+            ],
+            options: [.skipsHiddenFiles]
+        ) else {
+            entries = [:]
+            return []
+        }
+
+        var nextEntries: [String: Entry] = [:]
+        var summaries: [SessionSummary] = []
+
+        for case let url as URL in enumerator where url.pathExtension == "jsonl" {
+            let values = try url.resourceValues(forKeys: [
+                .isRegularFileKey,
+                .fileSizeKey,
+                .contentModificationDateKey
+            ])
+            guard values.isRegularFile == true,
+                  let size = values.fileSize,
+                  let modificationDate = values.contentModificationDate else {
+                continue
+            }
+
+            let fingerprint = Fingerprint(size: size, modificationDate: modificationDate)
+            let entry: Entry
+            if let cached = entries[url.path], cached.fingerprint == fingerprint {
+                entry = cached
+            } else {
+                entry = Entry(fingerprint: fingerprint, summary: try parser(url))
+            }
+            nextEntries[url.path] = entry
+            if let summary = entry.summary {
+                summaries.append(summary)
+            }
+        }
+
+        entries = nextEntries
+        return summaries
     }
 }

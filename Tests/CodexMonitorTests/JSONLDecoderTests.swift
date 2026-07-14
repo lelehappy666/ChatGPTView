@@ -19,6 +19,38 @@ final class JSONLDecoderTests: XCTestCase {
         XCTAssertEqual(summary?.longestTaskDuration, 3_600)
     }
 
+    func testSecondaryWeeklyWindowIsParsedFromLargeSessionFile() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("jsonl")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let padding = String(repeating: "x", count: 5 * 1_024 * 1_024)
+        let contents = """
+        {"timestamp":"2026-07-14T03:06:01.253Z","type":"session_meta","payload":{"timestamp":"2026-07-14T03:06:01.118Z","cwd":"/Users/tester/Projects/RealProject"}}
+        {"timestamp":"2026-07-14T03:06:02.000Z","type":"response_item","payload":{"type":"message","content":"\(padding)"}}
+        {"timestamp":"2026-07-14T03:06:03.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"total_tokens":321000}},"rate_limits":{"primary":{"used_percent":88,"window_minutes":300,"resets_at":1783999000},"secondary":{"used_percent":31,"window_minutes":10080,"resets_at":1784510985}}}}
+        """
+        try contents.write(to: url, atomically: true, encoding: .utf8)
+
+        let lines = contents.split(separator: "\n")
+        let metadata = try JSONDecoder().decode(CodexEnvelope.self, from: Data(lines[0].utf8))
+        let quota = try JSONDecoder().decode(CodexEnvelope.self, from: Data(lines[2].utf8))
+        XCTAssertEqual(metadata.payload.cwd, "/Users/tester/Projects/RealProject")
+        XCTAssertEqual(quota.payload.rateLimits?.weeklyWindow?.usedPercent, 31)
+
+        var streamedLines = 0
+        try SessionScanner.forEachLine(in: url) { _ in streamedLines += 1 }
+        XCTAssertEqual(streamedLines, 3)
+
+        let summary = try SessionScanner.parseFile(url)
+
+        XCTAssertEqual(summary?.projectName, "RealProject")
+        XCTAssertEqual(summary?.totalTokens, 321_000)
+        XCTAssertEqual(summary?.weeklyUsedPercent, 31)
+        XCTAssertEqual(summary?.weeklyResetsAt, Date(timeIntervalSince1970: 1_784_510_985))
+    }
+
     private func fixtureURL(named name: String) -> URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

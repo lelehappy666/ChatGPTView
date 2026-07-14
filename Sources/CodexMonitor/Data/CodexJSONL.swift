@@ -47,6 +47,13 @@ struct TokenUsage: Decodable {
 
 struct RateLimits: Decodable {
     let primary: RateWindow?
+    let secondary: RateWindow?
+
+    var weeklyWindow: RateWindow? {
+        [primary, secondary]
+            .compactMap { $0 }
+            .first { $0.windowMinutes == 10_080 }
+    }
 }
 
 struct RateWindow: Decodable {

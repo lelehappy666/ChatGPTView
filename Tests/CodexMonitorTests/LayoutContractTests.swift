@@ -3,8 +3,8 @@ import XCTest
 
 final class LayoutContractTests: XCTestCase {
     func testDashboardContractLeavesStatisticsSafetySpace() {
-        XCTAssertEqual(NotchLayout.size, CGSize(width: 328, height: 198))
-        XCTAssertGreaterThanOrEqual(NotchLayout.statisticsBottomSafeArea, 12)
+        XCTAssertEqual(NotchLayout.size, CGSize(width: 420, height: 260))
+        XCTAssertGreaterThanOrEqual(NotchLayout.statisticsBottomSafeArea, 14)
         XCTAssertEqual(NotchLayout.pageCount, 3)
     }
 

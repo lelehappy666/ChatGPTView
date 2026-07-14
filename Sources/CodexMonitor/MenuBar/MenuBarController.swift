@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
@@ -6,6 +7,8 @@ final class MenuBarController: NSObject {
     private let store: MonitorStore
     private let statusItem = NSStatusBar.system.statusItem(withLength: 300)
     private var hostingView: NSHostingView<MenuBarContentView>?
+    private var refreshItem: NSMenuItem?
+    private var cancellables: Set<AnyCancellable> = []
 
     init(store: MonitorStore) {
         self.store = store
@@ -28,10 +31,22 @@ final class MenuBarController: NSObject {
         self.hostingView = hostingView
 
         let menu = NSMenu()
-        menu.addItem(withTitle: "刷新数据", action: #selector(refresh), keyEquivalent: "r").target = self
+        let refreshItem = menu.addItem(
+            withTitle: "刷新数据",
+            action: #selector(refresh),
+            keyEquivalent: "r"
+        )
+        refreshItem.target = self
+        self.refreshItem = refreshItem
         menu.addItem(.separator())
         menu.addItem(withTitle: "退出 Codex Monitor", action: #selector(quit), keyEquivalent: "q").target = self
         statusItem.menu = menu
+
+        store.$refreshState
+            .sink { [weak self] state in
+                self?.updateRefreshItem(state)
+            }
+            .store(in: &cancellables)
     }
 
     @objc private func refresh() {
@@ -40,5 +55,18 @@ final class MenuBarController: NSObject {
 
     @objc private func quit() {
         NSApp.terminate(nil)
+    }
+
+    private func updateRefreshItem(_ state: RefreshState) {
+        switch state {
+        case .idle:
+            refreshItem?.title = "刷新数据"
+        case .refreshing:
+            refreshItem?.title = "正在刷新…"
+        case .updated:
+            refreshItem?.title = "已更新 · 再次刷新"
+        case .failed:
+            refreshItem?.title = "刷新失败 · 重试"
+        }
     }
 }

@@ -16,6 +16,12 @@ struct MenuBarContentView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .fixedSize()
 
+            if store.refreshState == .refreshing {
+                ProgressView()
+                    .controlSize(.mini)
+                    .frame(width: 10, height: 10)
+            }
+
             if let project = ticker.currentProject {
                 ProjectTickerView(
                     project: project,
@@ -24,6 +30,10 @@ struct MenuBarContentView: View {
                 )
                 .id(project.id + String(ticker.index))
                 .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if !store.isLoading {
+                Text("暂无项目")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.secondary)
             }
         }
         .frame(height: 22)

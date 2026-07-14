@@ -1,11 +1,11 @@
 import Foundation
 
 enum NotchLayout {
-    static let size = CGSize(width: 328, height: 198)
-    static let contentTop: CGFloat = 39
-    static let pagerHeight: CGFloat = 30
-    static let pageContentHeight: CGFloat = 129
-    static let statisticsBottomSafeArea: CGFloat = 12
+    static let size = CGSize(width: 420, height: 260)
+    static let contentTop: CGFloat = 48
+    static let pagerHeight: CGFloat = 36
+    static let pageContentHeight: CGFloat = 176
+    static let statisticsBottomSafeArea: CGFloat = 14
     static let pageCount = 3
 }
 

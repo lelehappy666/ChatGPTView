@@ -7,34 +7,34 @@ struct WeeklyQuotaPage: View {
     private var used: Double { max(0, min(100, 100 - (remaining ?? 100))) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 10) {
             DashboardHeader(title: "本周额度", subtitle: "Weekly usage limit", trailing: syncText)
 
-            HStack(spacing: 16) {
+            HStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("剩余额度")
-                        .font(.system(size: 8))
+                        .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                     HStack(alignment: .lastTextBaseline, spacing: 2) {
                         Text(remaining.map { String(Int($0.rounded())) } ?? "—")
-                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .font(.system(size: 44, weight: .bold, design: .rounded))
                         Text("%")
-                            .font(.system(size: 11))
+                            .font(.system(size: 14))
                             .foregroundStyle(.secondary)
                     }
                 }
-                .frame(width: 108, alignment: .leading)
+                .frame(width: 138, alignment: .leading)
                 .overlay(alignment: .trailing) {
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1, height: 52)
+                    Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1, height: 68)
                 }
 
-                VStack(spacing: 7) {
+                VStack(spacing: 9) {
                     HStack {
                         Text("本周已用").foregroundStyle(.secondary)
                         Spacer()
                         Text("\(Int(used.rounded()))%").fontWeight(.semibold)
                     }
-                    .font(.system(size: 8))
+                    .font(.system(size: 10))
 
                     GeometryReader { proxy in
                         ZStack(alignment: .leading) {
@@ -44,14 +44,14 @@ struct WeeklyQuotaPage: View {
                                 .frame(width: proxy.size.width * used / 100)
                         }
                     }
-                    .frame(height: 6)
+                    .frame(height: 8)
 
                     HStack {
                         Text("距离重置").foregroundStyle(.secondary)
                         Spacer()
                         Text(resetText).fontWeight(.semibold)
                     }
-                    .font(.system(size: 8))
+                    .font(.system(size: 10))
                 }
             }
 
@@ -62,10 +62,10 @@ struct WeeklyQuotaPage: View {
                         .frame(maxWidth: .infinity)
                 }
             }
-            .frame(height: 5)
+            .frame(height: 7)
         }
-        .padding(.horizontal, 18)
-        .frame(width: 328, height: 129, alignment: .top)
+        .padding(.horizontal, 22)
+        .frame(width: NotchLayout.size.width, height: NotchLayout.pageContentHeight, alignment: .top)
     }
 
     private var syncText: String {
@@ -89,12 +89,12 @@ struct DashboardHeader: View {
     var body: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 11, weight: .semibold))
-                Text(subtitle).font(.system(size: 8)).foregroundStyle(.secondary)
+                Text(title).font(.system(size: 14, weight: .semibold))
+                Text(subtitle).font(.system(size: 10)).foregroundStyle(.secondary)
             }
             Spacer()
             Text(trailing)
-                .font(.system(size: 8, weight: .medium))
+                .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(Color(red: 0.49, green: 0.90, blue: 0.73))
         }
     }

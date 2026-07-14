@@ -3,6 +3,29 @@ import XCTest
 
 @MainActor
 final class MonitorStoreTests: XCTestCase {
+    func testIncrementalScannerReusesUnchangedFileSummary() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appendingPathComponent("session.jsonl")
+        try Data("{}\n".utf8).write(to: file)
+
+        let counter = ParseCounter()
+        let summary = sampleSummary
+        let scanner = IncrementalSessionScanner { _ in
+            counter.increment()
+            return summary
+        }
+
+        let first = try await scanner.scan(root: root)
+        let second = try await scanner.scan(root: root)
+
+        XCTAssertEqual(first, [sampleSummary])
+        XCTAssertEqual(second, [sampleSummary])
+        XCTAssertEqual(counter.value, 1)
+    }
+
     func testRepeatedRefreshRequestsAreCoalesced() async throws {
         let harness = ScannerHarness(sessions: [sampleSummary])
         let store = MonitorStore(
@@ -14,12 +37,14 @@ final class MonitorStoreTests: XCTestCase {
         for _ in 0..<5 {
             store.requestRefresh()
         }
+        XCTAssertEqual(store.refreshState, .refreshing)
         try await Task.sleep(for: .milliseconds(80))
 
         let invocationCount = await harness.count()
         XCTAssertEqual(invocationCount, 1)
         XCTAssertEqual(store.snapshot.lifetimeTokens, 42)
         XCTAssertFalse(store.isLoading)
+        XCTAssertEqual(store.refreshState, .updated)
     }
 
     func testScannerFailureKeepsLastGoodSnapshot() async throws {
@@ -38,6 +63,7 @@ final class MonitorStoreTests: XCTestCase {
 
         XCTAssertEqual(store.snapshot.lifetimeTokens, 42)
         XCTAssertEqual(store.errorMessage, "数据可能已过期")
+        XCTAssertEqual(store.refreshState, .failed)
     }
 
     func testWatcherRejectsMissingDirectory() {
@@ -60,6 +86,19 @@ final class MonitorStoreTests: XCTestCase {
             weeklyUsedPercent: 25,
             weeklyResetsAt: nil
         )
+    }
+}
+
+private final class ParseCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int {
+        lock.withLock { count }
+    }
+
+    func increment() {
+        lock.withLock { count += 1 }
     }
 }
 
