@@ -52,8 +52,15 @@ struct TokenUsage: Decodable {
 }
 
 struct RateLimits: Decodable {
+    let limitID: String?
     let primary: RateWindow?
     let secondary: RateWindow?
+
+    enum CodingKeys: String, CodingKey {
+        case limitID = "limit_id"
+        case primary
+        case secondary
+    }
 
     var weeklyWindow: RateWindow? {
         [primary, secondary]
@@ -84,6 +91,7 @@ struct SessionSummary: Equatable, Sendable {
     let state: ProjectRunState
     let updatedAt: Date
     let weeklyUsedPercent: Double?
+    let weeklyLimitID: String?
     let weeklyResetsAt: Date?
 
     init(
@@ -96,6 +104,7 @@ struct SessionSummary: Equatable, Sendable {
         state: ProjectRunState,
         updatedAt: Date,
         weeklyUsedPercent: Double?,
+        weeklyLimitID: String? = nil,
         weeklyResetsAt: Date?
     ) {
         self.date = date
@@ -107,6 +116,7 @@ struct SessionSummary: Equatable, Sendable {
         self.state = state
         self.updatedAt = updatedAt
         self.weeklyUsedPercent = weeklyUsedPercent
+        self.weeklyLimitID = weeklyLimitID
         self.weeklyResetsAt = weeklyResetsAt
     }
 }

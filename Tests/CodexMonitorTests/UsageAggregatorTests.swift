@@ -45,6 +45,38 @@ final class UsageAggregatorTests: XCTestCase {
         XCTAssertEqual(snapshot.projects.map(\.name), ["Broken", "Active"])
     }
 
+    func testCanonicalCodexQuotaWinsOverNewerModelSpecificQuota() {
+        let now = date(2026, 7, 14, 12)
+        let sessions = [
+            summary(
+                date: now,
+                project: "主会话",
+                tokens: 100,
+                state: .running,
+                updatedAt: now.addingTimeInterval(-5),
+                weeklyUsed: 70,
+                weeklyLimitID: "codex"
+            ),
+            summary(
+                date: now,
+                project: "Spark会话",
+                tokens: 100,
+                state: .running,
+                updatedAt: now,
+                weeklyUsed: 0,
+                weeklyLimitID: "codex_bengalfox"
+            )
+        ]
+
+        let snapshot = UsageAggregator.makeSnapshot(
+            sessions: sessions,
+            now: now,
+            calendar: utcCalendar
+        )
+
+        XCTAssertEqual(snapshot.weeklyQuota.remainingPercent, 30)
+    }
+
     func testAllProjectStatesExpireAfterSixtySeconds() {
         let now = date(2026, 7, 14, 12)
         let staleProjects = [
@@ -190,6 +222,7 @@ final class UsageAggregatorTests: XCTestCase {
         state: ProjectRunState,
         updatedAt: Date,
         weeklyUsed: Double? = nil,
+        weeklyLimitID: String? = nil,
         sessionID: String = "session",
         agentNickname: String? = nil
     ) -> SessionSummary {
@@ -203,6 +236,7 @@ final class UsageAggregatorTests: XCTestCase {
             state: state,
             updatedAt: updatedAt,
             weeklyUsedPercent: weeklyUsed,
+            weeklyLimitID: weeklyLimitID,
             weeklyResetsAt: nil
         )
     }

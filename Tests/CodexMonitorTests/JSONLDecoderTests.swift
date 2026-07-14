@@ -69,7 +69,7 @@ final class JSONLDecoderTests: XCTestCase {
         let contents = """
         {"timestamp":"2026-07-14T03:06:01.253Z","type":"session_meta","payload":{"timestamp":"2026-07-14T03:06:01.118Z","cwd":"/Users/tester/Projects/RealProject"}}
         {"timestamp":"2026-07-14T03:06:02.000Z","type":"response_item","payload":{"type":"message","content":"\(padding)"}}
-        {"timestamp":"2026-07-14T03:06:03.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"total_tokens":321000}},"rate_limits":{"primary":{"used_percent":88,"window_minutes":300,"resets_at":1783999000},"secondary":{"used_percent":31,"window_minutes":10080,"resets_at":1784510985}}}}
+        {"timestamp":"2026-07-14T03:06:03.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"total_tokens":321000}},"rate_limits":{"limit_id":"codex","primary":{"used_percent":88,"window_minutes":300,"resets_at":1783999000},"secondary":{"used_percent":31,"window_minutes":10080,"resets_at":1784510985}}}}
         """
         try contents.write(to: url, atomically: true, encoding: .utf8)
 
@@ -78,6 +78,7 @@ final class JSONLDecoderTests: XCTestCase {
         let quota = try JSONDecoder().decode(CodexEnvelope.self, from: Data(lines[2].utf8))
         XCTAssertEqual(metadata.payload.cwd, "/Users/tester/Projects/RealProject")
         XCTAssertEqual(quota.payload.rateLimits?.weeklyWindow?.usedPercent, 31)
+        XCTAssertEqual(quota.payload.rateLimits?.limitID, "codex")
 
         var streamedLines = 0
         try SessionScanner.forEachLine(in: url) { _ in streamedLines += 1 }
@@ -88,6 +89,7 @@ final class JSONLDecoderTests: XCTestCase {
         XCTAssertEqual(summary?.projectName, "RealProject")
         XCTAssertEqual(summary?.totalTokens, 321_000)
         XCTAssertEqual(summary?.weeklyUsedPercent, 31)
+        XCTAssertEqual(summary?.weeklyLimitID, "codex")
         XCTAssertEqual(summary?.weeklyResetsAt, Date(timeIntervalSince1970: 1_784_510_985))
     }
 

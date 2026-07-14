@@ -40,6 +40,7 @@ enum SessionScanner {
         var state: ProjectRunState = .completed
         var updatedAt = Date.distantPast
         var weeklyUsedPercent: Double?
+        var weeklyLimitID: String?
         var weeklyResetsAt: Date?
 
         try forEachSummaryLine(in: url) { line in
@@ -70,6 +71,7 @@ enum SessionScanner {
                 tokens = payload.info?.totalTokenUsage?.totalTokens ?? tokens
                 if let weeklyWindow = payload.rateLimits?.weeklyWindow {
                     weeklyUsedPercent = weeklyWindow.usedPercent
+                    weeklyLimitID = payload.rateLimits?.limitID
                     weeklyResetsAt = weeklyWindow.resetsAt
                         .map(Date.init(timeIntervalSince1970:))
                 }
@@ -92,6 +94,7 @@ enum SessionScanner {
             state: state,
             updatedAt: updatedAt == .distantPast ? timestamp : updatedAt,
             weeklyUsedPercent: weeklyUsedPercent,
+            weeklyLimitID: weeklyLimitID,
             weeklyResetsAt: weeklyResetsAt
         )
     }
