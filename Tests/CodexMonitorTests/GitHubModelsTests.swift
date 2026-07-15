@@ -11,8 +11,44 @@ final class GitHubModelsTests: XCTestCase {
         XCTAssertEqual(GitHubAuthorizationContent.primaryAction, "授权 GitHub")
         XCTAssertEqual(
             GitHubAuthorizationContent.privacyNote,
-            "令牌仅存储在本机钥匙串"
+            "仅请求读取公开仓库与活动数据"
         )
+    }
+
+    func testAuthorizationUsesOneButtonAndBindsRecognizedClipboardToken() {
+        XCTAssertEqual(
+            GitHubAuthorizationAction.next(clipboard: "github_pat_example"),
+            .bind(token: "github_pat_example")
+        )
+        XCTAssertEqual(
+            GitHubAuthorizationAction.next(clipboard: "ghp_example"),
+            .bind(token: "ghp_example")
+        )
+        XCTAssertEqual(
+            GitHubAuthorizationAction.next(clipboard: "普通文本"),
+            .openTokenPage
+        )
+    }
+
+    func testCanvasRenderPlanCreatesSevenRowsWithoutViewPerCellLayout() {
+        let days = (0..<14).map {
+            GitHubContributionDay(
+                date: Date(timeIntervalSince1970: Double($0) * 86_400),
+                contributionCount: $0
+            )
+        }
+
+        let cells = GitHubContributionRenderPlan.cells(
+            days: days,
+            width: 15,
+            spacing: 1
+        )
+
+        XCTAssertEqual(cells.count, 14)
+        XCTAssertEqual(cells[0].rect, CGRect(x: 0, y: 0, width: 7, height: 7))
+        XCTAssertEqual(cells[6].rect, CGRect(x: 0, y: 48, width: 7, height: 7))
+        XCTAssertEqual(cells[7].rect, CGRect(x: 8, y: 0, width: 7, height: 7))
+        XCTAssertEqual(cells[13].rect, CGRect(x: 8, y: 48, width: 7, height: 7))
     }
 
     func testContributionScaleUsesFiveStableLevels() {

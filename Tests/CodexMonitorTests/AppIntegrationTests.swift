@@ -35,6 +35,8 @@ final class AppIntegrationTests: XCTestCase {
         )
 
         XCTAssertEqual(plist["CFBundleIconFile"] as? String, "AppIcon")
+        XCTAssertEqual(plist["CFBundleShortVersionString"] as? String, "0.1.1")
+        XCTAssertEqual(plist["CFBundleVersion"] as? String, "2")
         XCTAssertTrue(
             FileManager.default.fileExists(
                 atPath: root.appendingPathComponent("Resources/AppIcon.icns").path
@@ -49,5 +51,41 @@ final class AppIntegrationTests: XCTestCase {
         XCTAssertFalse(
             NotchRefreshPolicy.shouldRequestRefresh(isPanelVisible: true)
         )
+    }
+
+    func testGitHubPageAvoidsPerCellViewTreeAndOffscreenBlur() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let githubDirectory = root
+            .appendingPathComponent("Sources/CodexMonitor/GitHub")
+        let files = ["GitHubActivityPage.swift", "GitHubContributionHeatmap.swift"]
+        let source = try files.map {
+            try String(
+                contentsOf: githubDirectory.appendingPathComponent($0),
+                encoding: .utf8
+            )
+        }.joined(separator: "\n")
+
+        XCTAssertFalse(source.contains("LazyHGrid"))
+        XCTAssertFalse(source.contains(".blur("))
+        XCTAssertFalse(source.contains(".ultraThinMaterial"))
+        XCTAssertTrue(source.contains("Canvas"))
+    }
+
+    func testNotchDashboardForcesDarkAppearanceForSecondaryText() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appendingPathComponent(
+                "Sources/CodexMonitor/Notch/NotchDashboardView.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(source.contains(".environment(\\.colorScheme, .dark)"))
     }
 }

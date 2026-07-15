@@ -14,7 +14,7 @@ struct RecentRepositoryGrid: View {
         } else {
             LazyVGrid(
                 columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 2),
-                spacing: 4
+                spacing: 5
             ) {
                 ForEach(repositories.recentlyPushed(limit: 6)) { repository in
                     RepositoryLinkCard(repository: repository)
@@ -33,31 +33,31 @@ private struct RepositoryLinkCard: View {
             NSWorkspace.shared.open(repository.url)
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: "shippingbox")
-                    .font(.system(size: 9))
+                Image(systemName: "book.closed")
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
 
                 VStack(alignment: .leading, spacing: 0) {
                     Text(repository.name)
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Text(relativeTime)
-                        .font(.system(size: 7))
+                        .font(.system(size: 8))
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer(minLength: 2)
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 7, weight: .semibold))
+                    .font(.system(size: 8, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 8)
-            .frame(height: 25)
+            .frame(height: 34)
             .contentShape(Rectangle())
-            .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 7))
+            .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
             .overlay(
-                RoundedRectangle(cornerRadius: 7)
+                RoundedRectangle(cornerRadius: 8)
                     .stroke(Color.white.opacity(0.08))
             )
         }

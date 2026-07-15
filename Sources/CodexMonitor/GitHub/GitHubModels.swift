@@ -33,7 +33,20 @@ enum GitHubAuthorizationContent {
     static let title = "连接 GitHub"
     static let message = "授权后查看贡献记录和最近更新的仓库"
     static let primaryAction = "授权 GitHub"
-    static let privacyNote = "令牌仅存储在本机钥匙串"
+    static let privacyNote = "仅请求读取公开仓库与活动数据"
+}
+
+enum GitHubAuthorizationAction: Equatable {
+    case openTokenPage
+    case bind(token: String)
+
+    static func next(clipboard: String?) -> GitHubAuthorizationAction {
+        let token = clipboard?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if token.hasPrefix("github_pat_") || token.hasPrefix("ghp_") {
+            return .bind(token: token)
+        }
+        return .openTokenPage
+    }
 }
 
 enum GitHubContributionScale {
@@ -53,5 +66,41 @@ enum GitHubRepositoryLinkPolicy {
     static func canOpen(_ url: URL) -> Bool {
         url.scheme?.lowercased() == "https" &&
             url.host?.lowercased() == "github.com"
+    }
+}
+
+struct GitHubContributionRenderCell: Equatable {
+    let rect: CGRect
+    let level: Int
+}
+
+enum GitHubContributionRenderPlan {
+    static func cells(
+        days: [GitHubContributionDay],
+        width: CGFloat,
+        spacing: CGFloat
+    ) -> [GitHubContributionRenderCell] {
+        guard !days.isEmpty else { return [] }
+        let columns = Int(ceil(Double(days.count) / 7.0))
+        let availableWidth = width - CGFloat(Swift.max(0, columns - 1)) * spacing
+        let cellSize = Swift.max(0, availableWidth / CGFloat(columns))
+        let maximum = Swift.max(1, days.map(\.contributionCount).max() ?? 1)
+
+        return days.enumerated().map { index, day in
+            let column = index / 7
+            let row = index % 7
+            return GitHubContributionRenderCell(
+                rect: CGRect(
+                    x: CGFloat(column) * (cellSize + spacing),
+                    y: CGFloat(row) * (cellSize + spacing),
+                    width: cellSize,
+                    height: cellSize
+                ),
+                level: GitHubContributionScale.level(
+                    count: day.contributionCount,
+                    maximum: maximum
+                )
+            )
+        }
     }
 }

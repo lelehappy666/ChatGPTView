@@ -44,6 +44,7 @@ struct NotchDashboardView: View {
             .frame(height: NotchLayout.pagerHeight)
         }
         .foregroundStyle(Color.white)
+        .environment(\.colorScheme, .dark)
         .frame(width: NotchLayout.size.width, height: NotchLayout.size.height)
         .background(Color.black)
         .clipShape(

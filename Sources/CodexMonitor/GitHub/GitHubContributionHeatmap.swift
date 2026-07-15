@@ -3,41 +3,39 @@ import SwiftUI
 struct GitHubContributionHeatmap: View {
     let days: [GitHubContributionDay]
 
-    private var maximum: Int {
-        Swift.max(1, days.map(\.contributionCount).max() ?? 1)
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            LazyHGrid(
-                rows: Array(repeating: GridItem(.fixed(4), spacing: 1), count: 7),
-                spacing: 1
+        Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+            for cell in GitHubContributionRenderPlan.cells(
+                days: displayDays,
+                width: size.width,
+                spacing: 1.25
             ) {
-                ForEach(displayDays) { day in
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(color(for: day.contributionCount))
-                        .frame(width: 4, height: 4)
-                        .help(tooltip(for: day))
-                }
+                let path = Path(
+                    roundedRect: cell.rect,
+                    cornerRadius: 1.4
+                )
+                context.fill(path, with: .color(color(level: cell.level)))
             }
-            .frame(height: 34, alignment: .leading)
-
-            HStack(spacing: 3) {
-                Text("少")
-                ForEach(0...4, id: \.self) { level in
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(color(level: level))
-                        .frame(width: 5, height: 5)
-                }
-                Text("多")
-            }
-            .font(.system(size: 7))
-            .foregroundStyle(.secondary)
         }
+        .accessibilityLabel("GitHub 贡献热力图")
+        .accessibilityValue("最近 12 个月共 \(days.reduce(0) { $0 + $1.contributionCount }) 次贡献")
     }
 
     private var displayDays: [GitHubContributionDay] {
-        guard days.isEmpty else { return days }
+        days.isEmpty ? Self.placeholderDays : days
+    }
+
+    private func color(level: Int) -> Color {
+        switch level {
+        case 1: return Color(red: 0.22, green: 0.21, blue: 0.27)
+        case 2: return Color(red: 0.37, green: 0.33, blue: 0.50)
+        case 3: return Color(red: 0.52, green: 0.45, blue: 0.73)
+        case 4: return Color(red: 0.70, green: 0.63, blue: 0.98)
+        default: return Color.white.opacity(0.10)
+        }
+    }
+
+    private static let placeholderDays: [GitHubContributionDay] = {
         let calendar = Calendar(identifier: .gregorian)
         let today = calendar.startOfDay(for: .now)
         return (0..<371).compactMap { offset in
@@ -45,26 +43,5 @@ struct GitHubContributionHeatmap: View {
                 GitHubContributionDay(date: $0, contributionCount: 0)
             }
         }
-    }
-
-    private func color(for count: Int) -> Color {
-        color(level: GitHubContributionScale.level(count: count, maximum: maximum))
-    }
-
-    private func color(level: Int) -> Color {
-        switch level {
-        case 1: return Color(red: 0.25, green: 0.23, blue: 0.34)
-        case 2: return Color(red: 0.38, green: 0.33, blue: 0.53)
-        case 3: return Color(red: 0.51, green: 0.44, blue: 0.72)
-        case 4: return Color(red: 0.67, green: 0.60, blue: 0.94)
-        default: return Color.white.opacity(0.10)
-        }
-    }
-
-    private func tooltip(for day: GitHubContributionDay) -> String {
-        let date = day.date.formatted(
-            .dateTime.locale(Locale(identifier: "zh_CN")).month().day()
-        )
-        return "\(date) · \(day.contributionCount) 次贡献"
-    }
+    }()
 }
