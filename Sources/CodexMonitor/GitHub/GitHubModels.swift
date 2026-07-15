@@ -50,13 +50,14 @@ enum GitHubAuthorizationAction: Equatable {
 }
 
 enum GitHubContributionScale {
-    static func level(count: Int, maximum: Int) -> Int {
-        guard count > 0 else { return 0 }
-        let ratio = Double(count) / Double(Swift.max(1, maximum))
-        switch ratio {
-        case ...0.25: return 1
-        case ...0.50: return 2
-        case ...0.75: return 3
+    static let maximumExpectedCount = 30
+
+    static func level(count: Int) -> Int {
+        switch Swift.max(0, Swift.min(count, maximumExpectedCount)) {
+        case 0: return 0
+        case 1...3: return 1
+        case 4...9: return 2
+        case 10...19: return 3
         default: return 4
         }
     }
@@ -96,7 +97,6 @@ enum GitHubContributionRenderPlan {
         let columns = Int(ceil(Double(days.count) / 7.0))
         let availableWidth = width - CGFloat(Swift.max(0, columns - 1)) * spacing
         let cellSize = Swift.max(0, availableWidth / CGFloat(columns))
-        let maximum = Swift.max(1, days.map(\.contributionCount).max() ?? 1)
 
         return days.enumerated().map { index, day in
             let column = index / 7
@@ -109,10 +109,7 @@ enum GitHubContributionRenderPlan {
                     width: cellSize,
                     height: cellSize
                 ),
-                level: GitHubContributionScale.level(
-                    count: day.contributionCount,
-                    maximum: maximum
-                )
+                level: GitHubContributionScale.level(count: day.contributionCount)
             )
         }
     }

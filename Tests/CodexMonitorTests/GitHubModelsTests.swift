@@ -52,12 +52,16 @@ final class GitHubModelsTests: XCTestCase {
     }
 
     func testContributionScaleUsesFiveStableLevels() {
-        XCTAssertEqual(GitHubContributionScale.level(count: 0, maximum: 20), 0)
-        XCTAssertEqual(GitHubContributionScale.level(count: 1, maximum: 20), 1)
-        XCTAssertEqual(GitHubContributionScale.level(count: 5, maximum: 20), 1)
-        XCTAssertEqual(GitHubContributionScale.level(count: 10, maximum: 20), 2)
-        XCTAssertEqual(GitHubContributionScale.level(count: 15, maximum: 20), 3)
-        XCTAssertEqual(GitHubContributionScale.level(count: 20, maximum: 20), 4)
+        XCTAssertEqual(GitHubContributionScale.level(count: 0), 0)
+        XCTAssertEqual(GitHubContributionScale.level(count: 1), 1)
+        XCTAssertEqual(GitHubContributionScale.level(count: 3), 1)
+        XCTAssertEqual(GitHubContributionScale.level(count: 4), 2)
+        XCTAssertEqual(GitHubContributionScale.level(count: 9), 2)
+        XCTAssertEqual(GitHubContributionScale.level(count: 10), 3)
+        XCTAssertEqual(GitHubContributionScale.level(count: 19), 3)
+        XCTAssertEqual(GitHubContributionScale.level(count: 20), 4)
+        XCTAssertEqual(GitHubContributionScale.level(count: 30), 4)
+        XCTAssertEqual(GitHubContributionScale.level(count: 80), 4)
     }
 
     func testRepositoryURLPolicyOnlyAllowsGitHubHTTPSLinks() {
