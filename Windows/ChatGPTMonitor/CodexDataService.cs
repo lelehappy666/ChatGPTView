@@ -11,9 +11,10 @@ internal sealed class CodexDataService : IDisposable
         ".codex",
         "sessions");
     private readonly Dictionary<string, CacheEntry> _cache = new(StringComparer.OrdinalIgnoreCase);
-    private readonly SessionCompletionDetector _completionDetector = new();
     private readonly CoalescingRefreshRunner _refreshRunner;
+    private readonly CompletionNotificationCoordinator _completionCoordinator;
     private readonly object _debounceLock = new();
+    private MonitorSnapshot _latestSnapshot = MonitorSnapshot.Empty;
     private FileSystemWatcher? _watcher;
     private System.Threading.Timer? _debounceTimer;
     private bool _disposed;
@@ -24,6 +25,10 @@ internal sealed class CodexDataService : IDisposable
     public CodexDataService()
     {
         _refreshRunner = new CoalescingRefreshRunner(RefreshOnceAsync);
+        _completionCoordinator = new CompletionNotificationCoordinator(
+            requestRefresh: _refreshRunner.RequestAsync,
+            latestSessions: () => Volatile.Read(ref _latestSnapshot).Sessions,
+            notify: session => SessionCompleted?.Invoke(session));
     }
 
     public void Start()
@@ -71,12 +76,9 @@ internal sealed class CodexDataService : IDisposable
         var summaries = await Task.Run(ScanSessions);
         if (_disposed) return;
         var snapshot = BuildSnapshot(summaries);
-        var completed = _completionDetector.Observe(snapshot.Sessions);
+        Volatile.Write(ref _latestSnapshot, snapshot);
         SnapshotChanged?.Invoke(snapshot);
-        foreach (var session in completed)
-        {
-            SessionCompleted?.Invoke(session);
-        }
+        _completionCoordinator.Observe(snapshot.Sessions);
     }
 
     private IReadOnlyList<SessionSummary> ScanSessions()
@@ -401,6 +403,7 @@ internal sealed class CodexDataService : IDisposable
         _disposed = true;
         _watcher?.Dispose();
         _debounceTimer?.Dispose();
+        _completionCoordinator.Dispose();
         _refreshRunner.Dispose();
     }
 }

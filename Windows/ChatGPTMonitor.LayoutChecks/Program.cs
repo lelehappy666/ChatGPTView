@@ -194,4 +194,78 @@ using (var refreshRunner = new CoalescingRefreshRunner(async () =>
 }
 Check(refreshCount == 2, "扫描期间到达的刷新请求不能丢失");
 
+var latestConfirmedSessions = new List<SessionActivity>
+{
+    Session("stable", "稳定项目", SessionState.Running, 300, "turn-1")
+};
+var confirmationRefreshStarted = new TaskCompletionSource(
+    TaskCreationOptions.RunContinuationsAsynchronously);
+var allowConfirmationRefresh = new TaskCompletionSource(
+    TaskCreationOptions.RunContinuationsAsynchronously);
+var confirmedNotifications = new List<SessionActivity>();
+using (var coordinator = new CompletionNotificationCoordinator(
+    requestRefresh: async () =>
+    {
+        confirmationRefreshStarted.TrySetResult();
+        await allowConfirmationRefresh.Task;
+    },
+    latestSessions: () => latestConfirmedSessions,
+    notify: confirmedNotifications.Add,
+    now: () => DateTimeOffset.FromUnixTimeSeconds(303).LocalDateTime,
+    completionDelay: TimeSpan.Zero,
+    refreshSettleDelay: TimeSpan.Zero,
+    freshness: TimeSpan.FromSeconds(15)))
+{
+    coordinator.Observe(latestConfirmedSessions);
+    latestConfirmedSessions = new List<SessionActivity>
+    {
+        Session("stable", "稳定项目", SessionState.Completed, 301, "turn-1")
+    };
+    coordinator.Observe(latestConfirmedSessions);
+    await confirmationRefreshStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+    Check(confirmedNotifications.Count == 0, "复核刷新完成前不能通知");
+    allowConfirmationRefresh.TrySetResult();
+    await coordinator.WaitForIdleAsync().WaitAsync(TimeSpan.FromSeconds(2));
+}
+Check(confirmedNotifications.Count == 1, "稳定完成轮次应且只应通知一次");
+
+var latestSupersededSessions = new List<SessionActivity>
+{
+    Session("changing", "变化项目", SessionState.Running, 400, "turn-old")
+};
+var supersededRefreshStarted = new TaskCompletionSource(
+    TaskCreationOptions.RunContinuationsAsynchronously);
+var allowSupersededRefresh = new TaskCompletionSource(
+    TaskCreationOptions.RunContinuationsAsynchronously);
+var supersededNotificationCount = 0;
+using (var coordinator = new CompletionNotificationCoordinator(
+    requestRefresh: async () =>
+    {
+        supersededRefreshStarted.TrySetResult();
+        await allowSupersededRefresh.Task;
+    },
+    latestSessions: () => latestSupersededSessions,
+    notify: _ => supersededNotificationCount++,
+    now: () => DateTimeOffset.FromUnixTimeSeconds(403).LocalDateTime,
+    completionDelay: TimeSpan.Zero,
+    refreshSettleDelay: TimeSpan.Zero,
+    freshness: TimeSpan.FromSeconds(15)))
+{
+    coordinator.Observe(latestSupersededSessions);
+    latestSupersededSessions = new List<SessionActivity>
+    {
+        Session("changing", "变化项目", SessionState.Completed, 401, "turn-old")
+    };
+    coordinator.Observe(latestSupersededSessions);
+    await supersededRefreshStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+    latestSupersededSessions = new List<SessionActivity>
+    {
+        Session("changing", "变化项目", SessionState.Running, 402, "turn-new")
+    };
+    coordinator.Observe(latestSupersededSessions);
+    allowSupersededRefresh.TrySetResult();
+    await coordinator.WaitForIdleAsync().WaitAsync(TimeSpan.FromSeconds(2));
+}
+Check(supersededNotificationCount == 0, "同一会话开始新轮次后必须取消旧通知");
+
 Console.WriteLine("全部布局与通知契约检查通过");

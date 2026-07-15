@@ -10,6 +10,7 @@
     <Compile Include="..\ChatGPTMonitor\CodexDataService.cs" Link="CodexDataService.cs" />
     <Compile Include="..\ChatGPTMonitor\SessionCompletionDetector.cs" Link="SessionCompletionDetector.cs" />
     <Compile Include="..\ChatGPTMonitor\CoalescingRefreshRunner.cs" Link="CoalescingRefreshRunner.cs" />
+    <Compile Include="..\ChatGPTMonitor\CompletionNotificationCoordinator.cs" Link="CompletionNotificationCoordinator.cs" />
     <Compile Include="..\ChatGPTMonitor\IslandLayout.cs" Link="IslandLayout.cs" />
     <Compile Include="..\ChatGPTMonitor\HoverExpansionState.cs" Link="HoverExpansionState.cs" />
     <Compile Include="..\ChatGPTMonitor\WindowsBackdrop.cs" Link="WindowsBackdrop.cs" />
