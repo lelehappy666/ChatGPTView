@@ -5,6 +5,7 @@ struct NotchDashboardView: View {
     let reduceMotion: Bool
 
     @State private var page = 0
+    @StateObject private var githubStore = GitHubActivityStore()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -14,6 +15,7 @@ struct NotchDashboardView: View {
                 WeeklyQuotaPage(snapshot: snapshot)
                 DailyActivityPage(snapshot: snapshot)
                 StatisticsPage(snapshot: snapshot)
+                GitHubActivityPage(store: githubStore)
             }
             .frame(width: NotchLayout.size.width * CGFloat(NotchLayout.pageCount), alignment: .leading)
             .offset(x: -CGFloat(page) * NotchLayout.size.width)
@@ -51,5 +53,9 @@ struct NotchDashboardView: View {
             )
         )
         .animation(reduceMotion ? nil : .snappy(duration: 0.28), value: page)
+        .onChange(of: page) { _, newPage in
+            guard newPage == NotchLayout.pageCount - 1 else { return }
+            Task { await githubStore.loadIfNeeded() }
+        }
     }
 }
