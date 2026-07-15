@@ -11,11 +11,12 @@ final class AppIntegrationTests: XCTestCase {
         )
     }
 
-    func testPageNavigationClampsToThreePages() {
+    func testPageNavigationClampsToFourPages() {
         XCTAssertEqual(PageNavigation.target(from: 0, delta: 30), 0)
         XCTAssertEqual(PageNavigation.target(from: 0, delta: -30), 1)
-        XCTAssertEqual(PageNavigation.target(from: 2, delta: -30), 2)
-        XCTAssertEqual(PageNavigation.target(from: 2, delta: 30), 1)
+        XCTAssertEqual(PageNavigation.target(from: 2, delta: -30), 3)
+        XCTAssertEqual(PageNavigation.target(from: 3, delta: -30), 3)
+        XCTAssertEqual(PageNavigation.target(from: 3, delta: 30), 2)
     }
 
     func testAppMetadataDeclaresPackagedIcon() throws {

@@ -5,7 +5,7 @@ final class LayoutContractTests: XCTestCase {
     func testDashboardContractLeavesStatisticsSafetySpace() {
         XCTAssertEqual(NotchLayout.size, CGSize(width: 420, height: 260))
         XCTAssertGreaterThanOrEqual(NotchLayout.statisticsBottomSafeArea, 14)
-        XCTAssertEqual(NotchLayout.pageCount, 3)
+        XCTAssertEqual(NotchLayout.pageCount, 4)
     }
 
     func testMetricFormattingMatchesCompactChineseDesign() {

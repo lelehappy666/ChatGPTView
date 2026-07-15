@@ -6,7 +6,7 @@ enum NotchLayout {
     static let pagerHeight: CGFloat = 36
     static let pageContentHeight: CGFloat = 176
     static let statisticsBottomSafeArea: CGFloat = 14
-    static let pageCount = 3
+    static let pageCount = 4
 }
 
 enum MetricFormatter {
