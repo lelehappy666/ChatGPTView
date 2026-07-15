@@ -46,10 +46,26 @@ enum CompletionConfirmation {
         freshness: TimeInterval
     ) -> Bool {
         guard let candidateTurnID = candidate.turnID else { return false }
+        let age = now.timeIntervalSince(latest.updatedAt)
         return latest.id == candidate.id &&
             latest.state == .completed &&
             latest.turnID == candidateTurnID &&
             latest.updatedAt == candidate.updatedAt &&
-            now.timeIntervalSince(latest.updatedAt) <= freshness
+            age >= 0 &&
+            age <= freshness
+    }
+}
+
+enum CompletionPendingPolicy {
+    static func keysToCancel(
+        pendingKeys: [String],
+        latest: SessionActivity
+    ) -> [String] {
+        let prefix = "\(latest.id)::"
+        let currentKey = latest.turnID.map { "\(latest.id)::\($0)" }
+        return pendingKeys.filter { key in
+            key.hasPrefix(prefix) &&
+                (latest.state != .completed || key != currentKey)
+        }.sorted()
     }
 }

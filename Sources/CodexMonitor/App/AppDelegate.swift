@@ -60,8 +60,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func scheduleCompletionNotification(for session: SessionActivity) {
         let notificationFreshness: TimeInterval = 15
+        let age = Date.now.timeIntervalSince(session.updatedAt)
         guard let turnID = session.turnID,
-              Date.now.timeIntervalSince(session.updatedAt) <= notificationFreshness else {
+              age >= 0,
+              age <= notificationFreshness else {
             return
         }
 
@@ -98,10 +100,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func cancelSupersededCompletions(using sessions: [SessionActivity]) {
         for latest in sessions {
-            let currentKey = latest.turnID.map { "\(latest.id)::\($0)" }
-            let obsoleteKeys = pendingCompletionTasks.keys.filter {
-                $0.hasPrefix("\(latest.id)::") && $0 != currentKey
-            }
+            let obsoleteKeys = CompletionPendingPolicy.keysToCancel(
+                pendingKeys: Array(pendingCompletionTasks.keys),
+                latest: latest
+            )
             for key in obsoleteKeys {
                 pendingCompletionTasks[key]?.cancel()
                 pendingCompletionTasks.removeValue(forKey: key)

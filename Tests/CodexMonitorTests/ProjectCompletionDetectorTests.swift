@@ -148,6 +148,61 @@ final class ProjectCompletionDetectorTests: XCTestCase {
         ))
     }
 
+    func testCompletionConfirmationRejectsFutureCompletionTimestamp() {
+        let completed = session(
+            "a",
+            project: "项目",
+            state: .completed,
+            at: 110,
+            turnID: "turn-a"
+        )
+
+        XCTAssertFalse(CompletionConfirmation.matches(
+            candidate: completed,
+            latest: completed,
+            now: Date(timeIntervalSince1970: 109),
+            freshness: 15
+        ))
+    }
+
+    func testPendingPolicyCancelsSameTurnWhenSessionReturnsToRunning() {
+        let pendingKeys = ["same::turn-a", "other::turn-b"]
+        let latest = session(
+            "same",
+            project: "项目",
+            state: .running,
+            at: 102,
+            turnID: "turn-a"
+        )
+
+        XCTAssertEqual(
+            CompletionPendingPolicy.keysToCancel(
+                pendingKeys: pendingKeys,
+                latest: latest
+            ),
+            ["same::turn-a"]
+        )
+    }
+
+    func testPendingPolicyCancelsOldTurnButKeepsOtherSession() {
+        let pendingKeys = ["same::turn-a", "other::turn-b"]
+        let latest = session(
+            "same",
+            project: "项目",
+            state: .completed,
+            at: 103,
+            turnID: "turn-new"
+        )
+
+        XCTAssertEqual(
+            CompletionPendingPolicy.keysToCancel(
+                pendingKeys: pendingKeys,
+                latest: latest
+            ),
+            ["same::turn-a"]
+        )
+    }
+
     private func session(
         _ id: String,
         project: String,
