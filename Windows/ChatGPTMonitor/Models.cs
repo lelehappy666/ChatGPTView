@@ -11,6 +11,7 @@ internal sealed record SessionSummary(
     string Id,
     string? ProjectName,
     string DisplayName,
+    string? TurnId,
     DateTime StartedAt,
     DateTime UpdatedAt,
     long TotalTokens,
@@ -24,6 +25,7 @@ internal sealed record SessionActivity(
     string Id,
     string ProjectName,
     string DisplayName,
+    string? TurnId,
     SessionState State,
     DateTime UpdatedAt);
 

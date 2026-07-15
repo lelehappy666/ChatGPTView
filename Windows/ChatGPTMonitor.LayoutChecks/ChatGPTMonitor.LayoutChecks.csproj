@@ -6,6 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\ChatGPTMonitor\Models.cs" Link="Models.cs" />
+    <Compile Include="..\ChatGPTMonitor\CodexDataService.cs" Link="CodexDataService.cs" />
     <Compile Include="..\ChatGPTMonitor\IslandLayout.cs" Link="IslandLayout.cs" />
     <Compile Include="..\ChatGPTMonitor\HoverExpansionState.cs" Link="HoverExpansionState.cs" />
     <Compile Include="..\ChatGPTMonitor\WindowsBackdrop.cs" Link="WindowsBackdrop.cs" />

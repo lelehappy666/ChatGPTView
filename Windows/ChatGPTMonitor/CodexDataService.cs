@@ -133,11 +133,13 @@ internal sealed class CodexDataService : IDisposable
         return summaries;
     }
 
-    private static SessionSummary? ParseSession(string file)
+    internal static SessionSummary? ParseSession(string file)
     {
         string? cwd = null;
         string? id = null;
         string? nickname = null;
+        string? sessionTitle = null;
+        string? turnId = null;
         var startedAt = File.GetCreationTime(file);
         var updatedAt = startedAt;
         var state = SessionState.Completed;
@@ -174,15 +176,18 @@ internal sealed class CodexDataService : IDisposable
                             startedAt = parsed.ToLocalTime();
                         break;
                     case "task_started":
+                        turnId = GetString(payload, "turn_id") ?? turnId;
                         state = SessionState.Running;
                         updatedAt = UnixDate(payload, "started_at") ?? updatedAt;
                         break;
                     case "task_complete":
+                        turnId = GetString(payload, "turn_id") ?? turnId;
                         state = SessionState.Completed;
                         updatedAt = UnixDate(payload, "completed_at") ?? updatedAt;
                         longest = Max(longest, Duration(payload));
                         break;
                     case "turn_aborted":
+                        turnId = GetString(payload, "turn_id") ?? turnId;
                         state = SessionState.Failed;
                         updatedAt = UnixDate(payload, "completed_at") ?? updatedAt;
                         longest = Max(longest, Duration(payload));
@@ -205,6 +210,9 @@ internal sealed class CodexDataService : IDisposable
                             }
                         }
                         break;
+                    case "user_message":
+                        sessionTitle ??= ReadableSessionTitle(GetString(payload, "message"));
+                        break;
                 }
             }
             catch (JsonException)
@@ -216,13 +224,16 @@ internal sealed class CodexDataService : IDisposable
         if (string.IsNullOrWhiteSpace(cwd)) return null;
         var projectName = ProjectName(cwd);
         var sessionId = id ?? Path.GetFileNameWithoutExtension(file);
-        var displayName = string.IsNullOrWhiteSpace(nickname)
-            ? $"{startedAt:HH:mm} 会话"
-            : nickname.Trim();
+        var displayName = !string.IsNullOrWhiteSpace(nickname)
+            ? nickname.Trim()
+            : !string.IsNullOrWhiteSpace(sessionTitle)
+                ? sessionTitle
+                : $"{startedAt:HH:mm} 会话";
         return new SessionSummary(
             sessionId,
             projectName,
             displayName,
+            turnId,
             startedAt,
             updatedAt,
             tokens,
@@ -258,6 +269,7 @@ internal sealed class CodexDataService : IDisposable
                 item.Id,
                 item.ProjectName!,
                 item.DisplayName,
+                item.TurnId,
                 item.State,
                 item.UpdatedAt))
             .OrderBy(item => item.UpdatedAt)
@@ -312,7 +324,21 @@ internal sealed class CodexDataService : IDisposable
         line.Contains("\"type\":\"task_started\"") ||
         line.Contains("\"type\":\"task_complete\"") ||
         line.Contains("\"type\":\"turn_aborted\"") ||
+        line.Contains("\"type\":\"user_message\"") ||
         line.Contains("\"type\":\"token_count\"");
+
+    private static string? ReadableSessionTitle(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message)) return null;
+        var title = message
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Trim())
+            .FirstOrDefault(line =>
+                line.Length > 0 &&
+                !line.StartsWith('<') &&
+                !line.StartsWith("# AGENTS", StringComparison.Ordinal));
+        return title is null ? null : title[..Math.Min(24, title.Length)];
+    }
 
     private static string? ProjectName(string cwd)
     {

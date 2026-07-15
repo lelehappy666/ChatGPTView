@@ -75,4 +75,24 @@ Check(WindowsBackdrop.SystemBackdropTypeForIsland == 1, "Windows 顶部窗口必
 Check(WindowsBackdrop.CornerPreferenceForIsland == 1, "Windows 顶部窗口圆角必须完全由 Region 负责");
 Check(WindowsBackdrop.BorderColorForIsland == -2, "Windows 顶部窗口必须关闭 DWM 自动边框");
 
-Console.WriteLine("全部布局契约检查通过");
+var sessionFile = Path.Combine(Path.GetTempPath(), $"codex-session-{Guid.NewGuid():N}.jsonl");
+try
+{
+    File.WriteAllText(sessionFile, """
+        {"type":"session_meta","payload":{"type":"session_meta","id":"session-456","timestamp":"2026-07-14T06:36:17Z","cwd":"C:\\Projects\\Replaypoker"}}
+        {"type":"event_msg","payload":{"type":"user_message","message":"修复牌桌结算状态\n不要改变现有布局"}}
+        {"type":"event_msg","payload":{"type":"task_started","turn_id":"turn-123","started_at":1784010977}}
+        {"type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-123","completed_at":1784010988}}
+        """);
+
+    var summary = CodexDataService.ParseSession(sessionFile);
+    Check(summary?.Id == "session-456", "会话 ID 解析错误");
+    Check(summary?.TurnId == "turn-123", "轮次 ID 解析错误");
+    Check(summary?.DisplayName == "修复牌桌结算状态", "根会话标题解析错误");
+}
+finally
+{
+    File.Delete(sessionFile);
+}
+
+Console.WriteLine("全部布局与通知契约检查通过");
