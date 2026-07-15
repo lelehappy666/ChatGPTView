@@ -105,6 +105,11 @@ final class NotchWindowController {
     }
 
     private func show(on screen: NSScreen) {
+        guard NotchRefreshPolicy.shouldRequestRefresh(
+            isPanelVisible: panel.isVisible
+        ) else { return }
+        store.requestRefresh()
+
         let fullFrame = NotchGeometry.panelFrame(screen: screen.frame)
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
 
@@ -145,6 +150,12 @@ final class NotchWindowController {
 
     private func screen(containing point: CGPoint) -> NSScreen? {
         NSScreen.screens.first { $0.frame.contains(point) } ?? NSScreen.main
+    }
+}
+
+enum NotchRefreshPolicy {
+    static func shouldRequestRefresh(isPanelVisible: Bool) -> Bool {
+        !isPanelVisible
     }
 }
 

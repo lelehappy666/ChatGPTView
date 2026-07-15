@@ -40,4 +40,13 @@ final class AppIntegrationTests: XCTestCase {
             )
         )
     }
+
+    func testNotchRefreshOnlyOccursWhenHiddenPanelWillOpen() {
+        XCTAssertTrue(
+            NotchRefreshPolicy.shouldRequestRefresh(isPanelVisible: false)
+        )
+        XCTAssertFalse(
+            NotchRefreshPolicy.shouldRequestRefresh(isPanelVisible: true)
+        )
+    }
 }
