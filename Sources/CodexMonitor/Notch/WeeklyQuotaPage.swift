@@ -3,6 +3,8 @@ import SwiftUI
 struct WeeklyQuotaPage: View {
     let snapshot: MonitorSnapshot
 
+    @State private var hoveredRecentDay: UsageDay?
+
     private var remaining: Double? { snapshot.weeklyQuota.remainingPercent }
     private var used: Double { max(0, min(100, 100 - (remaining ?? 100))) }
     private var recentDays: [UsageDay] {
@@ -65,9 +67,14 @@ struct WeeklyQuotaPage: View {
                         Text("最近 7 天")
                             .font(.system(size: 9, weight: .semibold))
                         Spacer()
-                        Text("每日 Token")
+                        Text(
+                            hoveredRecentDay.map {
+                                ActivityTooltip.tokenText(for: $0)
+                            } ?? "每日 Token"
+                        )
                             .font(.system(size: 8))
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
 
                     HStack(alignment: .bottom, spacing: 6) {
@@ -92,6 +99,14 @@ struct WeeklyQuotaPage: View {
                                     .foregroundStyle(.secondary)
                             }
                             .frame(maxWidth: .infinity)
+                            .contentShape(Rectangle())
+                            .onHover { isHovered in
+                                if isHovered {
+                                    hoveredRecentDay = day
+                                } else if hoveredRecentDay == day {
+                                    hoveredRecentDay = nil
+                                }
+                            }
                         }
                     }
                 }

@@ -24,16 +24,37 @@ struct RGBToken: Equatable, Sendable {
 enum ActivityTooltip {
     static let presentationDelayMilliseconds = 0
 
+    static func tokenText(
+        for day: UsageDay,
+        calendar: Calendar = .current
+    ) -> String {
+        "\(dateText(for: day.date, calendar: calendar)) · " +
+            "\(MetricFormatter.tokens(day.tokens)) Token"
+    }
+
     static func text(
         for day: UsageDay,
         calendar: Calendar = .current
     ) -> String {
-        let components = calendar.dateComponents([.month, .day], from: day.date)
-        let dateText = "\(components.month ?? 0)月\(components.day ?? 0)日"
+        let dateText = dateText(for: day.date, calendar: calendar)
         guard day.tokens > 0 || day.sessions > 0 else {
             return "\(dateText) · 无活动"
         }
         return "\(dateText) · \(MetricFormatter.tokens(day.tokens)) Token · \(day.sessions) 个会话"
+    }
+
+    private static func dateText(for date: Date, calendar: Calendar) -> String {
+        let components = calendar.dateComponents([.month, .day], from: date)
+        return "\(components.month ?? 0)月\(components.day ?? 0)日"
+    }
+}
+
+enum DailyAverageComparison {
+    static func text(today: Int, average: Int) -> String {
+        guard average > 0 else { return "—" }
+        let ratio = Double(today) / Double(average)
+        let percent = Int(((ratio - 1) * 100).rounded())
+        return percent > 0 ? "+\(percent)%" : "\(percent)%"
     }
 }
 

@@ -62,6 +62,17 @@ enum GitHubContributionScale {
     }
 }
 
+enum GitHubContributionTooltip {
+    static func text(
+        for day: GitHubContributionDay,
+        calendar: Calendar = .current
+    ) -> String {
+        let components = calendar.dateComponents([.month, .day], from: day.date)
+        let dateText = "\(components.month ?? 0)月\(components.day ?? 0)日"
+        return "\(dateText) · \(day.contributionCount) 次贡献"
+    }
+}
+
 enum GitHubRepositoryLinkPolicy {
     static func canOpen(_ url: URL) -> Bool {
         url.scheme?.lowercased() == "https" &&
@@ -70,6 +81,7 @@ enum GitHubRepositoryLinkPolicy {
 }
 
 struct GitHubContributionRenderCell: Equatable {
+    let day: GitHubContributionDay
     let rect: CGRect
     let level: Int
 }
@@ -90,6 +102,7 @@ enum GitHubContributionRenderPlan {
             let column = index / 7
             let row = index % 7
             return GitHubContributionRenderCell(
+                day: day,
                 rect: CGRect(
                     x: CGFloat(column) * (cellSize + spacing),
                     y: CGFloat(row) * (cellSize + spacing),
@@ -102,5 +115,12 @@ enum GitHubContributionRenderPlan {
                 )
             )
         }
+    }
+
+    static func day(
+        at point: CGPoint,
+        cells: [GitHubContributionRenderCell]
+    ) -> GitHubContributionDay? {
+        cells.first(where: { $0.rect.contains(point) })?.day
     }
 }

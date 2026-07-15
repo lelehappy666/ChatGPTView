@@ -123,6 +123,8 @@ private struct GitHubActivityContent: View {
     let onRefresh: () async -> Void
     let onDisconnect: () -> Void
 
+    @State private var hoveredContributionDay: GitHubContributionDay?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             GitHubPageHeader(
@@ -169,11 +171,21 @@ private struct GitHubActivityContent: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                GitHubContributionLegend()
+                if let hoveredContributionDay {
+                    Text(GitHubContributionTooltip.text(for: hoveredContributionDay))
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                } else {
+                    GitHubContributionLegend()
+                }
             }
             .frame(height: 18)
 
-            GitHubContributionHeatmap(days: snapshot.contributionDays)
+            GitHubContributionHeatmap(
+                days: snapshot.contributionDays,
+                onHover: { hoveredContributionDay = $0 }
+            )
                 .frame(height: 42)
 
             Text("最近更新")

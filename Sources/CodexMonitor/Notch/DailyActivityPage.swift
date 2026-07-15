@@ -14,7 +14,7 @@ struct DailyActivityPage: View {
             DashboardHeader(title: "每日活动", subtitle: "最近 8 周 · 每格代表一天", trailing: "56 天")
 
             DashboardCard(padding: 10) {
-                HStack(alignment: .top, spacing: 16) {
+                HStack(alignment: .top, spacing: 10) {
                     ActivityHeatmap(days: snapshot.dailyActivity)
                         .frame(width: 142, alignment: .topLeading)
 
@@ -30,7 +30,26 @@ struct DailyActivityPage: View {
                             .font(.system(size: 8))
                             .foregroundStyle(.secondary)
                     }
-                    .padding(.leading, 4)
+                    .frame(width: 92, alignment: .topLeading)
+
+                    Rectangle()
+                        .fill(Color.white.opacity(0.08))
+                        .frame(width: 1, height: 72)
+
+                    VStack(spacing: 12) {
+                        DailyInlineMetric(
+                            value: "\(today?.sessions ?? 0)",
+                            label: "今日会话"
+                        )
+                        DailyInlineMetric(
+                            value: DailyAverageComparison.text(
+                                today: today?.tokens ?? 0,
+                                average: averageTokens
+                            ),
+                            label: "较日均"
+                        )
+                    }
+                    .padding(.top, 2)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
             }
@@ -45,6 +64,24 @@ struct DailyActivityPage: View {
         }
         .padding(.horizontal, 22)
         .frame(width: NotchLayout.size.width, height: NotchLayout.pageContentHeight, alignment: .top)
+    }
+}
+
+private struct DailyInlineMetric: View {
+    let value: String
+    let label: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(label)
+                .font(.system(size: 8))
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 2)
+            Text(value)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
     }
 }
 

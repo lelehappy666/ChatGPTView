@@ -2,19 +2,37 @@ import SwiftUI
 
 struct GitHubContributionHeatmap: View {
     let days: [GitHubContributionDay]
+    let onHover: (GitHubContributionDay?) -> Void
+
+    @State private var hoveredDay: GitHubContributionDay?
 
     var body: some View {
-        Canvas(opaque: false, rendersAsynchronously: true) { context, size in
-            for cell in GitHubContributionRenderPlan.cells(
+        GeometryReader { proxy in
+            let cells = GitHubContributionRenderPlan.cells(
                 days: displayDays,
-                width: size.width,
+                width: proxy.size.width,
                 spacing: 1.25
-            ) {
-                let path = Path(
-                    roundedRect: cell.rect,
-                    cornerRadius: 1.4
-                )
-                context.fill(path, with: .color(color(level: cell.level)))
+            )
+
+            Canvas(opaque: false, rendersAsynchronously: true) { context, _ in
+                for cell in cells {
+                    let path = Path(
+                        roundedRect: cell.rect,
+                        cornerRadius: 1.4
+                    )
+                    context.fill(path, with: .color(color(level: cell.level)))
+                }
+            }
+            .contentShape(Rectangle())
+            .onContinuousHover { phase in
+                switch phase {
+                case .active(let location):
+                    updateHover(
+                        GitHubContributionRenderPlan.day(at: location, cells: cells)
+                    )
+                case .ended:
+                    updateHover(nil)
+                }
             }
         }
         .accessibilityLabel("GitHub 贡献热力图")
@@ -33,6 +51,12 @@ struct GitHubContributionHeatmap: View {
         case 4: return Color(red: 0.70, green: 0.63, blue: 0.98)
         default: return Color.white.opacity(0.10)
         }
+    }
+
+    private func updateHover(_ day: GitHubContributionDay?) {
+        guard hoveredDay != day else { return }
+        hoveredDay = day
+        onHover(day)
     }
 
     private static let placeholderDays: [GitHubContributionDay] = {
