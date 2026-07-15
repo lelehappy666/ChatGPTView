@@ -82,6 +82,7 @@ internal sealed class CompletionNotificationCoordinator : IDisposable
         {
             var candidate = entry.Value.Candidate;
             if (!latestBySession.TryGetValue(candidate.Id, out var latest) ||
+                !latest.IsTopLevel ||
                 latest.State != SessionState.Completed ||
                 !string.Equals(latest.TurnId, candidate.TurnId, StringComparison.Ordinal) ||
                 latest.UpdatedAt != candidate.UpdatedAt)

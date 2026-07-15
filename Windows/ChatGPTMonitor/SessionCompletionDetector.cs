@@ -10,6 +10,7 @@ internal sealed class SessionCompletionDetector
             .GroupBy(item => item.Id, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.OrderByDescending(item => item.UpdatedAt).First())
             .Where(item =>
+                item.IsTopLevel &&
                 item.State == SessionState.Completed &&
                 !string.IsNullOrWhiteSpace(item.TurnId))
             .Select(item => (Key: CompletionKey(item), Session: item))
@@ -44,7 +45,9 @@ internal static class CompletionConfirmation
         DateTime now,
         TimeSpan freshness)
     {
-        if (string.IsNullOrWhiteSpace(candidate.TurnId)) return false;
+        if (!candidate.IsTopLevel ||
+            !latest.IsTopLevel ||
+            string.IsNullOrWhiteSpace(candidate.TurnId)) return false;
         var age = now - latest.UpdatedAt;
         return string.Equals(latest.Id, candidate.Id, StringComparison.OrdinalIgnoreCase) &&
             latest.State == SessionState.Completed &&

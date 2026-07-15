@@ -11,7 +11,8 @@ static SessionActivity Session(
     string project,
     SessionState state,
     long timestamp,
-    string? turnId)
+    string? turnId,
+    bool isTopLevel = true)
 {
     return new SessionActivity(
         id,
@@ -19,7 +20,8 @@ static SessionActivity Session(
         id,
         turnId,
         state,
-        DateTimeOffset.FromUnixTimeSeconds(timestamp).LocalDateTime);
+        DateTimeOffset.FromUnixTimeSeconds(timestamp).LocalDateTime,
+        isTopLevel);
 }
 
 static SessionSummary ParseSession(string contents)
@@ -229,6 +231,26 @@ var parallelCompletions = parallelDetector.Observe(new[]
 });
 Check(parallelCompletions.Select(item => item.Id).SequenceEqual(new[] { "first", "second" }), "同项目不同会话必须分别通知");
 
+var hierarchyDetector = new SessionCompletionDetector();
+Check(hierarchyDetector.Observe(new[]
+{
+    Session("root", "Replaypoker(ios)", SessionState.Running, 105, "root-turn"),
+    Session("Epicurus", "Replaypoker(ios)", SessionState.Running, 105, "child-turn", false)
+}).Count == 0, "首次层级快照只应建立基线");
+Check(hierarchyDetector.Observe(new[]
+{
+    Session("root", "Replaypoker(ios)", SessionState.Running, 106, "root-turn"),
+    Session("Epicurus", "Replaypoker(ios)", SessionState.Completed, 106, "child-turn", false)
+}).Count == 0, "子代理完成不能触发项目通知");
+var rootCompletion = hierarchyDetector.Observe(new[]
+{
+    Session("root", "Replaypoker(ios)", SessionState.Completed, 107, "root-turn"),
+    Session("Epicurus", "Replaypoker(ios)", SessionState.Completed, 106, "child-turn", false)
+});
+Check(
+    rootCompletion.Count == 1 && rootCompletion[0].Id == "root",
+    "顶层会话真正完成时必须准确通知");
+
 var candidate = Session("confirm", "项目", SessionState.Completed, 200, "turn-old");
 var confirmationNow = DateTimeOffset.FromUnixTimeSeconds(203).LocalDateTime;
 Check(CompletionConfirmation.Matches(
@@ -256,6 +278,11 @@ Check(!CompletionConfirmation.Matches(
     candidate,
     DateTimeOffset.FromUnixTimeSeconds(199).LocalDateTime,
     TimeSpan.FromSeconds(15)), "未来时间的候选必须拒绝");
+Check(!CompletionConfirmation.Matches(
+    Session("child", "项目", SessionState.Completed, 200, "turn", false),
+    Session("child", "项目", SessionState.Completed, 200, "turn", false),
+    confirmationNow,
+    TimeSpan.FromSeconds(15)), "内部会话不能通过最终复核");
 
 var firstRefreshStarted = new TaskCompletionSource(
     TaskCreationOptions.RunContinuationsAsynchronously);
@@ -353,5 +380,44 @@ using (var coordinator = new CompletionNotificationCoordinator(
     await coordinator.WaitForIdleAsync().WaitAsync(TimeSpan.FromSeconds(2));
 }
 Check(supersededNotificationCount == 0, "同一会话开始新轮次后必须取消旧通知");
+
+var latestInternalSessions = new List<SessionActivity>
+{
+    Session("identity", "层级项目", SessionState.Running, 500, "turn")
+};
+var internalRefreshStarted = new TaskCompletionSource(
+    TaskCreationOptions.RunContinuationsAsynchronously);
+var allowInternalRefresh = new TaskCompletionSource(
+    TaskCreationOptions.RunContinuationsAsynchronously);
+var internalNotificationCount = 0;
+using (var coordinator = new CompletionNotificationCoordinator(
+    requestRefresh: async () =>
+    {
+        internalRefreshStarted.TrySetResult();
+        await allowInternalRefresh.Task;
+    },
+    latestSessions: () => latestInternalSessions,
+    notify: _ => internalNotificationCount++,
+    now: () => DateTimeOffset.FromUnixTimeSeconds(503).LocalDateTime,
+    completionDelay: TimeSpan.Zero,
+    refreshSettleDelay: TimeSpan.Zero,
+    freshness: TimeSpan.FromSeconds(15)))
+{
+    coordinator.Observe(latestInternalSessions);
+    latestInternalSessions = new List<SessionActivity>
+    {
+        Session("identity", "层级项目", SessionState.Completed, 501, "turn")
+    };
+    coordinator.Observe(latestInternalSessions);
+    await internalRefreshStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+    latestInternalSessions = new List<SessionActivity>
+    {
+        Session("identity", "层级项目", SessionState.Completed, 501, "turn", false)
+    };
+    coordinator.Observe(latestInternalSessions);
+    allowInternalRefresh.TrySetResult();
+    await coordinator.WaitForIdleAsync().WaitAsync(TimeSpan.FromSeconds(2));
+}
+Check(internalNotificationCount == 0, "最终快照变为内部会话时必须取消通知");
 
 Console.WriteLine("全部布局与通知契约检查通过");
