@@ -69,20 +69,26 @@ if errorlevel 1 goto sdk_verify_failed
 echo.
 
 set "PROJECT=%~dp0Windows\ChatGPTMonitor\ChatGPTMonitor.csproj"
+set "LAYOUT_CHECKS=%~dp0Windows\ChatGPTMonitor.LayoutChecks\ChatGPTMonitor.LayoutChecks.csproj"
 set "PUBLISH=%~dp0Windows\ChatGPTMonitor\bin\publish-win11"
 set "DIST=%~dp0dist-win11"
 
 if not exist "%PROJECT%" goto no_project
+if not exist "%LAYOUT_CHECKS%" goto no_layout_checks
 if exist "%PUBLISH%" rmdir /s /q "%PUBLISH%"
 if not exist "%DIST%" mkdir "%DIST%"
 if exist "%DIST%\ChatGPT.exe" del /q "%DIST%\ChatGPT.exe"
 
-echo [1/2] Building self-contained win-x64 executable...
+echo [1/3] Checking visual layout contracts...
+"%DOTNET_EXE%" run --project "%LAYOUT_CHECKS%" --configuration Release
+if errorlevel 1 goto layout_check_failed
+
+echo [2/3] Building self-contained win-x64 executable...
 "%DOTNET_EXE%" publish "%PROJECT%" --configuration Release --runtime win-x64 --self-contained true --output "%PUBLISH%" -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false
 if errorlevel 1 goto build_failed
 
 if not exist "%PUBLISH%\ChatGPT.exe" goto exe_missing
-echo [2/2] Copying final executable...
+echo [3/3] Copying final executable...
 copy /y "%PUBLISH%\ChatGPT.exe" "%DIST%\ChatGPT.exe" >nul
 if errorlevel 1 goto copy_failed
 
@@ -120,6 +126,15 @@ goto failed
 :no_project
 echo [ERROR] Project file was not found:
 echo %PROJECT%
+goto failed
+
+:no_layout_checks
+echo [ERROR] Visual layout checks project was not found:
+echo %LAYOUT_CHECKS%
+goto failed
+
+:layout_check_failed
+echo [ERROR] Visual layout contract checks failed.
 goto failed
 
 :build_failed
