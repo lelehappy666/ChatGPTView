@@ -16,7 +16,25 @@ internal static class Theme
     public static readonly Color Red = Color.FromArgb(255, 102, 123);
 
     public static Font Font(float size, FontStyle style = FontStyle.Regular) =>
-        new("Segoe UI Variable", size, style, GraphicsUnit.Point);
+        CreateEnglishFont(size, style);
+
+    public static Font CreateEnglishFont(float pixelSize, FontStyle style = FontStyle.Regular) =>
+        CreateFont("Segoe UI Variable", "Segoe UI", pixelSize, style);
+
+    public static Font CreateChineseFont(float pixelSize, FontStyle style = FontStyle.Regular) =>
+        CreateFont("Microsoft YaHei UI", "Microsoft YaHei", pixelSize, style);
+
+    private static Font CreateFont(string preferred, string fallback, float pixelSize, FontStyle style)
+    {
+        try
+        {
+            return new Font(preferred, pixelSize, style, GraphicsUnit.Pixel);
+        }
+        catch (ArgumentException)
+        {
+            return new Font(fallback, pixelSize, style, GraphicsUnit.Pixel);
+        }
+    }
 
     public static GraphicsPath RoundedRectangle(Rectangle bounds, int radius)
     {
