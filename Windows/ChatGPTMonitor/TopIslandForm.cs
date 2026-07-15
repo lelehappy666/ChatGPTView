@@ -7,6 +7,8 @@ internal sealed class TopIslandForm : Form
     private const int AnimationSteps = 12;
 
     private readonly IslandRenderer _renderer = new();
+    private readonly Action _requestRefresh;
+    private readonly HoverExpansionState _hoverState = new();
     private readonly ToolTip _activityToolTip = new()
     {
         InitialDelay = 0,
@@ -17,6 +19,8 @@ internal sealed class TopIslandForm : Form
         UseFading = true
     };
     private readonly System.Windows.Forms.Timer _animationTimer;
+    private readonly System.Windows.Forms.Timer _openTimer;
+    private readonly System.Windows.Forms.Timer _closeTimer;
 
     private MonitorSnapshot _snapshot = MonitorSnapshot.Empty;
     private IslandMetrics _metrics;
@@ -42,8 +46,9 @@ internal sealed class TopIslandForm : Form
         }
     }
 
-    public TopIslandForm()
+    public TopIslandForm(Action requestRefresh)
     {
+        _requestRefresh = requestRefresh;
         Text = "ChatGPT";
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
@@ -66,6 +71,18 @@ internal sealed class TopIslandForm : Form
         ClientSize = _metrics.CompactSize;
         _animationTimer = new System.Windows.Forms.Timer { Interval = 15 };
         _animationTimer.Tick += AnimateWindow;
+        _openTimer = new System.Windows.Forms.Timer { Interval = 80 };
+        _openTimer.Tick += (_, _) =>
+        {
+            _openTimer.Stop();
+            ApplyHoverAction(_hoverState.OpenDelayElapsed());
+        };
+        _closeTimer = new System.Windows.Forms.Timer { Interval = 180 };
+        _closeTimer.Tick += (_, _) =>
+        {
+            _closeTimer.Stop();
+            ApplyHoverAction(_hoverState.CloseDelayElapsed());
+        };
 
         Shown += (_, _) =>
         {
@@ -74,15 +91,34 @@ internal sealed class TopIslandForm : Form
         };
     }
 
-    public void ToggleExpanded()
+    public void ShowExpanded()
     {
-        _expanded = !_expanded;
-        if (_expanded) _renderExpanded = true;
+        ApplyHoverAction(_hoverState.ForceExpanded());
+    }
+
+    private void BeginExpansion(bool expanded)
+    {
+        _expanded = expanded;
+        if (expanded) _renderExpanded = true;
         _animationStart = ClientSize;
-        _animationTarget = _expanded ? _metrics.ExpandedSize : _metrics.CompactSize;
+        _animationTarget = expanded ? _metrics.ExpandedSize : _metrics.CompactSize;
         _animationStep = 0;
         _animationTimer.Start();
         Invalidate();
+    }
+
+    private void ApplyHoverAction(HoverExpansionAction action)
+    {
+        switch (action)
+        {
+            case HoverExpansionAction.ExpandAndRefresh:
+                BeginExpansion(true);
+                _requestRefresh();
+                break;
+            case HoverExpansionAction.Collapse:
+                BeginExpansion(false);
+                break;
+        }
     }
 
     public void UpdateSnapshot(MonitorSnapshot snapshot)
@@ -114,12 +150,6 @@ internal sealed class TopIslandForm : Form
         base.OnMouseDown(e);
         if (e.Button != MouseButtons.Left) return;
 
-        if (!_expanded)
-        {
-            ToggleExpanded();
-            return;
-        }
-
         var page = _metrics.TabAt(e.Location);
         if (page >= 0)
         {
@@ -130,7 +160,18 @@ internal sealed class TopIslandForm : Form
             return;
         }
 
-        if (_metrics.HeaderBounds.Contains(e.Location)) ToggleExpanded();
+    }
+
+    protected override void OnMouseEnter(EventArgs e)
+    {
+        base.OnMouseEnter(e);
+        _hoverState.PointerEntered();
+        _closeTimer.Stop();
+        if (!_hoverState.IsExpanded)
+        {
+            _openTimer.Stop();
+            _openTimer.Start();
+        }
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -163,6 +204,13 @@ internal sealed class TopIslandForm : Form
     protected override void OnMouseLeave(EventArgs e)
     {
         base.OnMouseLeave(e);
+        _hoverState.PointerExited();
+        _openTimer.Stop();
+        if (_hoverState.IsExpanded)
+        {
+            _closeTimer.Stop();
+            _closeTimer.Start();
+        }
         _hoveredActivityCell = -1;
         _activityToolTip.Hide(this);
         Invalidate();
@@ -250,6 +298,8 @@ internal sealed class TopIslandForm : Form
         if (disposing)
         {
             _animationTimer.Dispose();
+            _openTimer.Dispose();
+            _closeTimer.Dispose();
             _activityToolTip.Dispose();
         }
         base.Dispose(disposing);

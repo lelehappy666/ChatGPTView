@@ -19,7 +19,7 @@ internal sealed class MonitorApplicationContext : ApplicationContext
     public MonitorApplicationContext()
     {
         _dataService = new CodexDataService();
-        _island = new TopIslandForm();
+        _island = new TopIslandForm(() => _dataService.RequestRefresh());
         _tray = new TrayController(
             _island,
             () => _dataService.RequestRefresh(),

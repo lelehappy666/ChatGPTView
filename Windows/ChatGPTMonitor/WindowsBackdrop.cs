@@ -6,16 +6,19 @@ internal static class WindowsBackdrop
 {
     private const int DwmwaUseImmersiveDarkMode = 20;
     private const int DwmwaWindowCornerPreference = 33;
+    private const int DwmwaBorderColor = 34;
     private const int DwmwaSystemBackdropType = 38;
-    private const int DwmwcpRound = 2;
-    private const int DwmsbtMainWindow = 2;
+    public const int CornerPreferenceForIsland = 1;
+    public const int SystemBackdropTypeForIsland = 1;
+    public const int BorderColorForIsland = -2;
 
     public static void Apply(nint windowHandle)
     {
         if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000)) return;
         TrySet(windowHandle, DwmwaUseImmersiveDarkMode, 1);
-        TrySet(windowHandle, DwmwaWindowCornerPreference, DwmwcpRound);
-        TrySet(windowHandle, DwmwaSystemBackdropType, DwmsbtMainWindow);
+        TrySet(windowHandle, DwmwaWindowCornerPreference, CornerPreferenceForIsland);
+        TrySet(windowHandle, DwmwaBorderColor, BorderColorForIsland);
+        TrySet(windowHandle, DwmwaSystemBackdropType, SystemBackdropTypeForIsland);
     }
 
     private static void TrySet(nint windowHandle, int attribute, int value)

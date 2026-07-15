@@ -82,7 +82,7 @@ internal sealed class TrayController : IDisposable
     private void OpenMonitor()
     {
         if (!_island.Visible) _island.Show();
-        _island.ToggleExpanded();
+        _island.ShowExpanded();
         _island.BringToFront();
     }
 

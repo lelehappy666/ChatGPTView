@@ -51,4 +51,28 @@ foreach (var dpi in new[] { 96, 120, 144, 168, 192 })
     }
 }
 
+var hover = new HoverExpansionState();
+hover.PointerEntered();
+hover.PointerExited();
+Check(hover.OpenDelayElapsed() == HoverExpansionAction.None, "短暂经过不应展开");
+
+hover.PointerEntered();
+Check(hover.OpenDelayElapsed() == HoverExpansionAction.ExpandAndRefresh, "稳定悬停应展开并刷新");
+Check(hover.OpenDelayElapsed() == HoverExpansionAction.None, "重复移动不能重复刷新");
+
+hover.PointerExited();
+hover.PointerEntered();
+Check(hover.CloseDelayElapsed() == HoverExpansionAction.None, "收起等待期间重新进入不能收起");
+
+hover.PointerExited();
+Check(hover.CloseDelayElapsed() == HoverExpansionAction.Collapse, "移开后应收起");
+Check(hover.CloseDelayElapsed() == HoverExpansionAction.None, "已经收起时不能重复收起");
+
+Check(hover.ForceExpanded() == HoverExpansionAction.ExpandAndRefresh, "托盘应主动展开并刷新");
+Check(hover.ForceExpanded() == HoverExpansionAction.None, "托盘不能重复展开或刷新");
+
+Check(WindowsBackdrop.SystemBackdropTypeForIsland == 1, "Windows 顶部窗口必须关闭矩形系统背景");
+Check(WindowsBackdrop.CornerPreferenceForIsland == 1, "Windows 顶部窗口圆角必须完全由 Region 负责");
+Check(WindowsBackdrop.BorderColorForIsland == -2, "Windows 顶部窗口必须关闭 DWM 自动边框");
+
 Console.WriteLine("全部布局契约检查通过");
