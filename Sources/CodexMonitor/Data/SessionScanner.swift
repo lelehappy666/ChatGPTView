@@ -44,6 +44,7 @@ enum SessionScanner {
         var agentNickname: String?
         var sessionTitle: String?
         var turnID: String?
+        var isTopLevel = true
         var tokens = 0
         var longestTaskDuration: TimeInterval = 0
         var state: ProjectRunState = .completed
@@ -65,6 +66,10 @@ enum SessionScanner {
                 timestamp = payload.timestamp.flatMap(parseTimestamp)
                 sessionID = payload.id ?? payload.sessionID
                 agentNickname = payload.agentNickname
+                let hasParent = !(payload.parentThreadID ?? "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .isEmpty
+                isTopLevel = !hasParent && !(payload.source?.isInternal ?? false)
             case "user_message":
                 if sessionTitle == nil {
                     sessionTitle = readableSessionTitle(from: payload.message)
@@ -119,6 +124,7 @@ enum SessionScanner {
             agentNickname: agentNickname,
             sessionTitle: sessionTitle,
             turnID: turnID,
+            isTopLevel: isTopLevel,
             totalTokens: tokens,
             longestTaskDuration: longestTaskDuration,
             state: state,

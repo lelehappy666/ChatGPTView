@@ -34,6 +34,25 @@ struct SessionActivity: Identifiable, Equatable, Sendable {
     let state: ProjectRunState
     let updatedAt: Date
     let turnID: String?
+    let isTopLevel: Bool
+
+    init(
+        id: String,
+        projectName: String,
+        displayName: String,
+        state: ProjectRunState,
+        updatedAt: Date,
+        turnID: String?,
+        isTopLevel: Bool = true
+    ) {
+        self.id = id
+        self.projectName = projectName
+        self.displayName = displayName
+        self.state = state
+        self.updatedAt = updatedAt
+        self.turnID = turnID
+        self.isTopLevel = isTopLevel
+    }
 }
 
 enum SessionDisplayName {

@@ -12,6 +12,8 @@ struct CodexEnvelope: Decodable {
         let id: String?
         let sessionID: String?
         let agentNickname: String?
+        let parentThreadID: String?
+        let source: CodexSessionSource?
         let turnID: String?
         let message: String?
         let startedAt: Double?
@@ -31,11 +33,73 @@ struct CodexEnvelope: Decodable {
             case message
             case sessionID = "session_id"
             case agentNickname = "agent_nickname"
+            case parentThreadID = "parent_thread_id"
+            case source
             case turnID = "turn_id"
             case startedAt = "started_at"
             case completedAt = "completed_at"
             case durationMS = "duration_ms"
             case rateLimits = "rate_limits"
+        }
+    }
+}
+
+struct CodexSessionSource: Decodable {
+    let isInternal: Bool
+
+    init(from decoder: Decoder) throws {
+        isInternal = try CodexSourceValue(from: decoder).containsInternalMarker
+    }
+}
+
+private indirect enum CodexSourceValue: Decodable {
+    case string(String)
+    case object([String: CodexSourceValue])
+    case array([CodexSourceValue])
+    case scalar
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .scalar
+        } else if let value = try? container.decode(String.self) {
+            self = .string(value)
+        } else if let value = try? container.decode([String: CodexSourceValue].self) {
+            self = .object(value)
+        } else if let value = try? container.decode([CodexSourceValue].self) {
+            self = .array(value)
+        } else if (try? container.decode(Bool.self)) != nil ||
+                    (try? container.decode(Double.self)) != nil {
+            self = .scalar
+        } else {
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "无法解析 Codex 会话来源"
+            )
+        }
+    }
+
+    var containsInternalMarker: Bool {
+        switch self {
+        case .string, .scalar:
+            return false
+        case let .array(values):
+            return values.contains(where: \.containsInternalMarker)
+        case let .object(values):
+            for (key, value) in values {
+                if key.caseInsensitiveCompare("subagent") == .orderedSame {
+                    return true
+                }
+                if key.caseInsensitiveCompare("other") == .orderedSame,
+                   case let .string(name) = value,
+                   name.caseInsensitiveCompare("guardian") == .orderedSame {
+                    return true
+                }
+                if value.containsInternalMarker {
+                    return true
+                }
+            }
+            return false
         }
     }
 }
@@ -93,6 +157,7 @@ struct SessionSummary: Equatable, Sendable {
     let agentNickname: String?
     let sessionTitle: String?
     let turnID: String?
+    let isTopLevel: Bool
     let totalTokens: Int
     let longestTaskDuration: TimeInterval
     let state: ProjectRunState
@@ -108,6 +173,7 @@ struct SessionSummary: Equatable, Sendable {
         agentNickname: String? = nil,
         sessionTitle: String? = nil,
         turnID: String? = nil,
+        isTopLevel: Bool = true,
         totalTokens: Int,
         longestTaskDuration: TimeInterval,
         state: ProjectRunState,
@@ -122,6 +188,7 @@ struct SessionSummary: Equatable, Sendable {
         self.agentNickname = agentNickname
         self.sessionTitle = sessionTitle
         self.turnID = turnID
+        self.isTopLevel = isTopLevel
         self.totalTokens = totalTokens
         self.longestTaskDuration = longestTaskDuration
         self.state = state

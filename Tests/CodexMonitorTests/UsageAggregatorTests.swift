@@ -133,6 +133,41 @@ final class UsageAggregatorTests: XCTestCase {
         XCTAssertTrue(snapshot.projects.isEmpty)
     }
 
+    func testInternalSessionKeepsUsageAndHierarchyInAggregatedSnapshot() throws {
+        let now = date(2026, 7, 15, 10)
+        let sessions = [
+            summary(
+                date: now,
+                project: "Replaypoker(ios)",
+                tokens: 1_000,
+                state: .running,
+                updatedAt: now,
+                sessionID: "root"
+            ),
+            summary(
+                date: now,
+                project: "Replaypoker(ios)",
+                tokens: 250,
+                state: .completed,
+                updatedAt: now.addingTimeInterval(1),
+                sessionID: "Epicurus",
+                isTopLevel: false
+            )
+        ]
+
+        let snapshot = UsageAggregator.makeSnapshot(
+            sessions: sessions,
+            now: now.addingTimeInterval(1),
+            calendar: utcCalendar
+        )
+
+        XCTAssertEqual(snapshot.lifetimeTokens, 1_250)
+        XCTAssertEqual(snapshot.dailyActivity.count, 1)
+        XCTAssertEqual(snapshot.dailyActivity.first?.sessions, 2)
+        let child = try XCTUnwrap(snapshot.sessions.first { $0.id == "Epicurus" })
+        XCTAssertFalse(child.isTopLevel)
+    }
+
     func testSameProjectKeepsRunningAndCompletedSessionsIndependent() {
         let now = date(2026, 7, 14, 12)
         let sessions = [
@@ -224,13 +259,15 @@ final class UsageAggregatorTests: XCTestCase {
         weeklyUsed: Double? = nil,
         weeklyLimitID: String? = nil,
         sessionID: String = "session",
-        agentNickname: String? = nil
+        agentNickname: String? = nil,
+        isTopLevel: Bool = true
     ) -> SessionSummary {
         SessionSummary(
             date: date,
             projectName: project,
             sessionID: sessionID,
             agentNickname: agentNickname,
+            isTopLevel: isTopLevel,
             totalTokens: tokens,
             longestTaskDuration: 0,
             state: state,

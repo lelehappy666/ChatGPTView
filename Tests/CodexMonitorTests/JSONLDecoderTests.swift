@@ -2,6 +2,26 @@ import XCTest
 @testable import CodexMonitor
 
 final class JSONLDecoderTests: XCTestCase {
+    func testSessionHierarchyDistinguishesRootSubagentGuardianAndLegacyLogs() throws {
+        let root = try parse("""
+        {"type":"session_meta","payload":{"type":"session_meta","id":"root","timestamp":"2026-07-15T02:07:55Z","cwd":"/Users/test/Projects/Replaypoker(ios)","source":"vscode"}}
+        """)
+        let child = try parse("""
+        {"type":"session_meta","payload":{"type":"session_meta","id":"child","timestamp":"2026-07-15T02:36:42Z","cwd":"/Users/test/Projects/Replaypoker(ios)","parent_thread_id":"root","source":{"subagent":{"thread_spawn":{"parent_thread_id":"root"}}}}}
+        """)
+        let guardian = try parse("""
+        {"type":"session_meta","payload":{"type":"session_meta","id":"guardian","timestamp":"2026-07-15T02:37:00Z","cwd":"/Users/test/Projects/Replaypoker(ios)","source":{"other":"guardian"}}}
+        """)
+        let legacy = try parse("""
+        {"type":"session_meta","payload":{"type":"session_meta","id":"legacy","timestamp":"2026-07-15T02:38:00Z","cwd":"/Users/test/Projects/Replaypoker(ios)"}}
+        """)
+
+        XCTAssertTrue(root.isTopLevel)
+        XCTAssertFalse(child.isTopLevel)
+        XCTAssertFalse(guardian.isTopLevel)
+        XCTAssertTrue(legacy.isTopLevel)
+    }
+
     func testSessionMetadataExtractsStableIdentityAndNickname() throws {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
@@ -142,5 +162,14 @@ final class JSONLDecoderTests: XCTestCase {
             .appendingPathComponent("Fixtures")
             .appendingPathComponent(name)
             .appendingPathExtension("jsonl")
+    }
+
+    private func parse(_ contents: String) throws -> SessionSummary {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("jsonl")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try contents.write(to: url, atomically: true, encoding: .utf8)
+        return try XCTUnwrap(SessionScanner.parseFile(url))
     }
 }

@@ -66,7 +66,8 @@ enum UsageAggregator {
                 ),
                 state: item.session.state,
                 updatedAt: item.session.updatedAt,
-                turnID: item.session.turnID
+                turnID: item.session.turnID,
+                isTopLevel: item.session.isTopLevel
             )
         }
         .sorted {
