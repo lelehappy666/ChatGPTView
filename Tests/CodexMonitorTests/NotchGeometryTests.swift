@@ -7,7 +7,7 @@ final class NotchGeometryTests: XCTestCase {
 
         let frame = NotchGeometry.panelFrame(screen: screen)
 
-        XCTAssertEqual(frame, CGRect(x: 546, y: 622, width: 420, height: 360))
+        XCTAssertEqual(frame, CGRect(x: 546, y: 662, width: 420, height: 320))
     }
 
     func testPanelUsesSecondaryScreenCoordinates() {
@@ -16,7 +16,7 @@ final class NotchGeometryTests: XCTestCase {
         let frame = NotchGeometry.panelFrame(screen: screen)
         let hover = NotchGeometry.hoverRect(screen: screen)
 
-        XCTAssertEqual(frame, CGRect(x: 2_262, y: 840, width: 420, height: 360))
+        XCTAssertEqual(frame, CGRect(x: 2_262, y: 880, width: 420, height: 320))
         XCTAssertEqual(hover, CGRect(x: 2_390, y: 1_166, width: 164, height: 34))
     }
 }

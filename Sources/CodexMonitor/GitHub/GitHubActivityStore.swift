@@ -75,6 +75,14 @@ final class GitHubActivityStore: ObservableObject {
         await refresh()
     }
 
+    func primeFromCache() {
+        guard case .unbound = state,
+              let cached = cache.load() else {
+            return
+        }
+        state = .loading(cached: cached)
+    }
+
     func bind(token rawToken: String) async {
         let token = rawToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !token.isEmpty else {
@@ -85,7 +93,10 @@ final class GitHubActivityStore: ObservableObject {
         state = .loading(cached: nil)
         do {
             let snapshot = try await loader.fetchActivity(token: token)
-            try credentials.saveToken(token)
+            let credentialStore = credentials
+            try await Task.detached(priority: .utility) {
+                try credentialStore.saveToken(token)
+            }.value
             cache.save(snapshot)
             state = .loaded(snapshot)
             didLoad = true
@@ -100,7 +111,11 @@ final class GitHubActivityStore: ObservableObject {
         let cached = cache.load()
         let token: String
         do {
-            guard let storedToken = try credentials.readToken(), !storedToken.isEmpty else {
+            let credentialStore = credentials
+            let storedToken = try await Task.detached(priority: .utility) {
+                try credentialStore.readToken()
+            }.value
+            guard let storedToken, !storedToken.isEmpty else {
                 state = .unbound(message: nil)
                 return
             }
@@ -116,7 +131,10 @@ final class GitHubActivityStore: ObservableObject {
             cache.save(snapshot)
             state = .loaded(snapshot)
         } catch GitHubAPIError.invalidToken {
-            try? credentials.deleteToken()
+            let credentialStore = credentials
+            try? await Task.detached(priority: .utility) {
+                try credentialStore.deleteToken()
+            }.value
             cache.clear()
             state = .unbound(message: GitHubAPIError.invalidToken.localizedDescription)
         } catch {

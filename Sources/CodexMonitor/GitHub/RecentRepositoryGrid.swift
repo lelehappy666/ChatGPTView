@@ -14,7 +14,7 @@ struct RecentRepositoryGrid: View {
         } else {
             LazyVGrid(
                 columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 2),
-                spacing: 5
+                spacing: 4
             ) {
                 ForEach(repositories.recentlyPushed(limit: 6)) { repository in
                     RepositoryLinkCard(repository: repository)
@@ -53,7 +53,7 @@ private struct RepositoryLinkCard: View {
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 8)
-            .frame(height: 34)
+            .frame(height: 30)
             .contentShape(Rectangle())
             .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
             .overlay(

@@ -3,10 +3,21 @@ import XCTest
 
 final class LayoutContractTests: XCTestCase {
     func testDashboardContractLeavesStatisticsSafetySpace() {
-        XCTAssertEqual(NotchLayout.size, CGSize(width: 420, height: 360))
-        XCTAssertEqual(NotchLayout.pageContentHeight, 276)
+        XCTAssertEqual(NotchLayout.size, CGSize(width: 420, height: 320))
+        XCTAssertEqual(NotchLayout.pageContentHeight, 236)
         XCTAssertGreaterThanOrEqual(NotchLayout.statisticsBottomSafeArea, 14)
         XCTAssertEqual(NotchLayout.pageCount, 4)
+    }
+
+    func testGitHubLoadWaitsUntilPageTransitionFinishes() {
+        XCTAssertEqual(
+            GitHubPageLoadPolicy.delayMilliseconds(reduceMotion: false),
+            220
+        )
+        XCTAssertEqual(
+            GitHubPageLoadPolicy.delayMilliseconds(reduceMotion: true),
+            0
+        )
     }
 
     func testMetricFormattingMatchesCompactChineseDesign() {

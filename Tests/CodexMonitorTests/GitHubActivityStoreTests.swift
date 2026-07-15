@@ -72,6 +72,36 @@ final class GitHubActivityStoreTests: XCTestCase {
         XCTAssertEqual(store.state, .unbound(message: nil))
     }
 
+    func testPrimeFromCacheShowsContentWithoutReadingKeychain() {
+        let cached = makeSnapshot(username: "cached")
+        let credentials = ThreadRecordingCredentialStore(token: "saved-token")
+        let store = GitHubActivityStore(
+            loader: StubActivityLoader(result: .success(cached)),
+            credentials: credentials,
+            cache: MemoryActivityCache(snapshot: cached)
+        )
+
+        store.primeFromCache()
+
+        XCTAssertEqual(store.state, .loading(cached: cached))
+        XCTAssertNil(credentials.readOnMainThread)
+    }
+
+    func testRefreshReadsKeychainAwayFromMainThread() async {
+        let snapshot = makeSnapshot(username: "lele")
+        let credentials = ThreadRecordingCredentialStore(token: "saved-token")
+        let store = GitHubActivityStore(
+            loader: StubActivityLoader(result: .success(snapshot)),
+            credentials: credentials,
+            cache: MemoryActivityCache()
+        )
+
+        await store.loadIfNeeded()
+
+        XCTAssertEqual(credentials.readOnMainThread, false)
+        XCTAssertEqual(store.state, .loaded(snapshot))
+    }
+
     private func makeSnapshot(username: String) -> GitHubActivitySnapshot {
         GitHubActivitySnapshot(
             username: username,
@@ -91,7 +121,7 @@ private struct StubActivityLoader: GitHubActivityLoading {
     }
 }
 
-private final class MemoryCredentialStore: GitHubCredentialStoring {
+private final class MemoryCredentialStore: GitHubCredentialStoring, @unchecked Sendable {
     var token: String?
 
     init(token: String? = nil) {
@@ -113,4 +143,21 @@ private final class MemoryActivityCache: GitHubActivityCaching {
     func load() -> GitHubActivitySnapshot? { snapshot }
     func save(_ snapshot: GitHubActivitySnapshot) { self.snapshot = snapshot }
     func clear() { snapshot = nil }
+}
+
+private final class ThreadRecordingCredentialStore: GitHubCredentialStoring, @unchecked Sendable {
+    var token: String?
+    var readOnMainThread: Bool?
+
+    init(token: String?) {
+        self.token = token
+    }
+
+    func readToken() throws -> String? {
+        readOnMainThread = Thread.isMainThread
+        return token
+    }
+
+    func saveToken(_ token: String) throws { self.token = token }
+    func deleteToken() throws { token = nil }
 }

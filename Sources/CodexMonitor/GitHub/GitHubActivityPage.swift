@@ -12,7 +12,7 @@ struct GitHubActivityPage: View {
                 GitHubAuthorizationCard(message: message) { token in
                     await store.bind(token: token)
                 }
-                .offset(y: 24)
+                .offset(y: 18)
 
             case .loading(let cached):
                 if let cached {
@@ -26,7 +26,7 @@ struct GitHubActivityPage: View {
                     GitHubUnboundBackdrop()
                     ProgressView()
                         .controlSize(.small)
-                        .offset(y: 24)
+                        .offset(y: 18)
                 }
 
             case .loaded(let snapshot):
@@ -50,7 +50,7 @@ struct GitHubActivityPage: View {
                     GitHubAuthorizationCard(message: message) { token in
                         await store.bind(token: token)
                     }
-                    .offset(y: 24)
+                    .offset(y: 18)
                 }
             }
         }
@@ -124,7 +124,7 @@ private struct GitHubActivityContent: View {
     let onDisconnect: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 5) {
             GitHubPageHeader(
                 subtitle: statusMessage ?? "最近 12 个月",
                 subtitleColor: statusMessage == nil ? .secondary : Color.orange,
@@ -171,17 +171,17 @@ private struct GitHubActivityContent: View {
                 Spacer()
                 GitHubContributionLegend()
             }
-            .frame(height: 20)
+            .frame(height: 18)
 
             GitHubContributionHeatmap(days: snapshot.contributionDays)
-                .frame(height: 50)
+                .frame(height: 42)
 
             Text("最近更新")
                 .font(.system(size: 11, weight: .semibold))
-                .padding(.top, 2)
+                .padding(.top, 1)
 
             RecentRepositoryGrid(repositories: snapshot.repositories)
-                .frame(height: 112, alignment: .top)
+                .frame(height: 98, alignment: .top)
         }
     }
 }
@@ -204,7 +204,7 @@ private struct GitHubPageHeader<Trailing: View>: View {
             Spacer()
             trailing()
         }
-        .frame(height: 32)
+        .frame(height: 30)
     }
 }
 
@@ -276,7 +276,7 @@ private struct GitHubAuthorizationCard: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 18)
-        .frame(width: 244, height: 190)
+        .frame(width: 244, height: 170)
         .background(
             ZStack {
                 RoundedRectangle(cornerRadius: 15)

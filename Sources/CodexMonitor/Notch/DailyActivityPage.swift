@@ -10,46 +10,59 @@ struct DailyActivityPage: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 10) {
             DashboardHeader(title: "每日活动", subtitle: "最近 8 周 · 每格代表一天", trailing: "56 天")
 
-            HStack(alignment: .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 5) {
+            DashboardCard(padding: 10) {
+                HStack(alignment: .top, spacing: 16) {
                     ActivityHeatmap(days: snapshot.dailyActivity)
-                }
-                .frame(width: 142, alignment: .topLeading)
+                        .frame(width: 142, alignment: .topLeading)
 
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("今天").font(.system(size: 10)).foregroundStyle(.secondary)
-                    Text(MetricFormatter.tokens(today?.tokens ?? 0))
-                        .font(.system(size: 25, weight: .bold, design: .rounded))
-                    MetricRow(label: "会话", value: "\(today?.sessions ?? 0)")
-                    MetricRow(label: "平均/天", value: MetricFormatter.tokens(averageTokens))
-                    MetricRow(label: "连续使用", value: "\(snapshot.currentStreakDays) 天")
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("今天")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                        Text(MetricFormatter.tokens(today?.tokens ?? 0))
+                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                        Text("今日 Token")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.leading, 4)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
-                .padding(.leading, 15)
-                .overlay(alignment: .leading) {
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1, height: 106)
-                }
-                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
+            .frame(height: 122)
+
+            HStack(spacing: 8) {
+                DailyMetricCard(value: "\(today?.sessions ?? 0)", label: "今日会话")
+                DailyMetricCard(value: MetricFormatter.tokens(averageTokens), label: "平均/天")
+                DailyMetricCard(value: "\(snapshot.currentStreakDays) 天", label: "连续使用")
+            }
+            .frame(height: 62)
         }
         .padding(.horizontal, 22)
         .frame(width: NotchLayout.size.width, height: NotchLayout.pageContentHeight, alignment: .top)
     }
 }
 
-private struct MetricRow: View {
-    let label: String
+private struct DailyMetricCard: View {
     let value: String
+    let label: String
 
     var body: some View {
-        HStack(spacing: 6) {
-            Text(label).foregroundStyle(.secondary)
-            Spacer(minLength: 4)
-            Text(value).fontWeight(.semibold)
+        DashboardCard(padding: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(value)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text(label)
+                    .font(.system(size: 8))
+                    .foregroundStyle(.secondary)
+            }
         }
-        .font(.system(size: 10))
-        .lineLimit(1)
     }
 }

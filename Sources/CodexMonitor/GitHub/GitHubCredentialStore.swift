@@ -1,8 +1,7 @@
 import Foundation
 import Security
 
-@MainActor
-protocol GitHubCredentialStoring: AnyObject {
+protocol GitHubCredentialStoring: AnyObject, Sendable {
     func readToken() throws -> String?
     func saveToken(_ token: String) throws
     func deleteToken() throws
@@ -16,8 +15,7 @@ enum GitHubCredentialError: Error, LocalizedError {
     }
 }
 
-@MainActor
-final class KeychainGitHubCredentialStore: GitHubCredentialStoring {
+final class KeychainGitHubCredentialStore: GitHubCredentialStoring, @unchecked Sendable {
     private let service = "com.dafeng.codexmonitor.github"
     private let account = "github-access-token"
 

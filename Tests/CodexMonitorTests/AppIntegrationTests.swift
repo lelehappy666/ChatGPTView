@@ -35,8 +35,8 @@ final class AppIntegrationTests: XCTestCase {
         )
 
         XCTAssertEqual(plist["CFBundleIconFile"] as? String, "AppIcon")
-        XCTAssertEqual(plist["CFBundleShortVersionString"] as? String, "0.1.1")
-        XCTAssertEqual(plist["CFBundleVersion"] as? String, "2")
+        XCTAssertEqual(plist["CFBundleShortVersionString"] as? String, "0.1.2")
+        XCTAssertEqual(plist["CFBundleVersion"] as? String, "3")
         XCTAssertTrue(
             FileManager.default.fileExists(
                 atPath: root.appendingPathComponent("Resources/AppIcon.icns").path
@@ -87,5 +87,45 @@ final class AppIntegrationTests: XCTestCase {
         )
 
         XCTAssertTrue(source.contains(".environment(\\.colorScheme, .dark)"))
+    }
+
+    func testDashboardRendersOnlyTheVisiblePageDuringTransitions() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appendingPathComponent(
+                "Sources/CodexMonitor/Notch/NotchDashboardView.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(source.contains("switch page"))
+        XCTAssertFalse(
+            source.contains("NotchLayout.size.width * CGFloat(NotchLayout.pageCount)")
+        )
+        XCTAssertFalse(source.contains(".offset(x: -CGFloat(page)"))
+    }
+
+    func testSummaryPagesUseTheSharedCardLayout() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let directory = root.appendingPathComponent("Sources/CodexMonitor/Notch")
+        let pages = [
+            "WeeklyQuotaPage.swift",
+            "DailyActivityPage.swift",
+            "StatisticsPage.swift"
+        ]
+
+        for page in pages {
+            let source = try String(
+                contentsOf: directory.appendingPathComponent(page),
+                encoding: .utf8
+            )
+            XCTAssertTrue(source.contains("DashboardCard"), page)
+        }
     }
 }
