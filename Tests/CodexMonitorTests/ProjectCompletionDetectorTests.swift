@@ -38,6 +38,54 @@ final class ProjectCompletionDetectorTests: XCTestCase {
         )
     }
 
+    func testChildCompletionDoesNotNotifyWhileReplaypokerRootRuns() {
+        var detector = SessionCompletionDetector()
+        let rootRunning = session(
+            "root",
+            project: "Replaypoker(ios)",
+            state: .running,
+            at: 100,
+            turnID: "root-turn"
+        )
+        let childRunning = session(
+            "Epicurus",
+            project: "Replaypoker(ios)",
+            state: .running,
+            at: 100,
+            turnID: "child-turn",
+            isTopLevel: false
+        )
+
+        XCTAssertTrue(detector.completedSessions(in: [rootRunning, childRunning]).isEmpty)
+        XCTAssertTrue(detector.completedSessions(in: [
+            session(
+                "root",
+                project: "Replaypoker(ios)",
+                state: .running,
+                at: 101,
+                turnID: "root-turn"
+            ),
+            session(
+                "Epicurus",
+                project: "Replaypoker(ios)",
+                state: .completed,
+                at: 101,
+                turnID: "child-turn",
+                isTopLevel: false
+            )
+        ]).isEmpty)
+
+        XCTAssertEqual(detector.completedSessions(in: [
+            session(
+                "root",
+                project: "Replaypoker(ios)",
+                state: .completed,
+                at: 102,
+                turnID: "root-turn"
+            )
+        ]).map(\.id), ["root"])
+    }
+
     func testDifferentCompletedSessionsNotifyIndependently() {
         var detector = SessionCompletionDetector()
 
@@ -165,6 +213,24 @@ final class ProjectCompletionDetectorTests: XCTestCase {
         ))
     }
 
+    func testCompletionConfirmationRejectsInternalSession() {
+        let child = session(
+            "Epicurus",
+            project: "Replaypoker(ios)",
+            state: .completed,
+            at: 101,
+            turnID: "child-turn",
+            isTopLevel: false
+        )
+
+        XCTAssertFalse(CompletionConfirmation.matches(
+            candidate: child,
+            latest: child,
+            now: Date(timeIntervalSince1970: 103),
+            freshness: 15
+        ))
+    }
+
     func testPendingPolicyCancelsSameTurnWhenSessionReturnsToRunning() {
         let pendingKeys = ["same::turn-a", "other::turn-b"]
         let latest = session(
@@ -203,12 +269,32 @@ final class ProjectCompletionDetectorTests: XCTestCase {
         )
     }
 
+    func testPendingPolicyCancelsCandidateWhenLatestIdentityIsInternal() {
+        let latest = session(
+            "same",
+            project: "项目",
+            state: .completed,
+            at: 103,
+            turnID: "turn-a",
+            isTopLevel: false
+        )
+
+        XCTAssertEqual(
+            CompletionPendingPolicy.keysToCancel(
+                pendingKeys: ["same::turn-a", "other::turn-b"],
+                latest: latest
+            ),
+            ["same::turn-a"]
+        )
+    }
+
     private func session(
         _ id: String,
         project: String,
         state: ProjectRunState,
         at timestamp: TimeInterval,
-        turnID: String? = "turn"
+        turnID: String? = "turn",
+        isTopLevel: Bool = true
     ) -> SessionActivity {
         SessionActivity(
             id: id,
@@ -216,7 +302,8 @@ final class ProjectCompletionDetectorTests: XCTestCase {
             displayName: id,
             state: state,
             updatedAt: Date(timeIntervalSince1970: timestamp),
-            turnID: turnID
+            turnID: turnID,
+            isTopLevel: isTopLevel
         )
     }
 }

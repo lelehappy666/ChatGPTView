@@ -21,7 +21,9 @@ struct SessionCompletionDetector {
             }
 
         let completedWithIdentity = newestSessions.compactMap { session -> (String, SessionActivity)? in
-            guard session.state == .completed, let turnID = session.turnID else { return nil }
+            guard session.isTopLevel,
+                  session.state == .completed,
+                  let turnID = session.turnID else { return nil }
             return ("\(session.id)::\(turnID)", session)
         }
 
@@ -45,7 +47,9 @@ enum CompletionConfirmation {
         now: Date,
         freshness: TimeInterval
     ) -> Bool {
-        guard let candidateTurnID = candidate.turnID else { return false }
+        guard candidate.isTopLevel,
+              latest.isTopLevel,
+              let candidateTurnID = candidate.turnID else { return false }
         let age = now.timeIntervalSince(latest.updatedAt)
         return latest.id == candidate.id &&
             latest.state == .completed &&
@@ -65,7 +69,7 @@ enum CompletionPendingPolicy {
         let currentKey = latest.turnID.map { "\(latest.id)::\($0)" }
         return pendingKeys.filter { key in
             key.hasPrefix(prefix) &&
-                (latest.state != .completed || key != currentKey)
+                (!latest.isTopLevel || latest.state != .completed || key != currentKey)
         }.sorted()
     }
 }

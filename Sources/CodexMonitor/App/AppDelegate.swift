@@ -61,7 +61,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func scheduleCompletionNotification(for session: SessionActivity) {
         let notificationFreshness: TimeInterval = 15
         let age = Date.now.timeIntervalSince(session.updatedAt)
-        guard let turnID = session.turnID,
+        guard session.isTopLevel,
+              let turnID = session.turnID,
               age >= 0,
               age <= notificationFreshness else {
             return
