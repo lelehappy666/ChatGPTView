@@ -12,7 +12,7 @@ internal sealed class CodexDataService : IDisposable
         "sessions");
     private readonly Dictionary<string, CacheEntry> _cache = new(StringComparer.OrdinalIgnoreCase);
     private readonly SessionCompletionDetector _completionDetector = new();
-    private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private readonly CoalescingRefreshRunner _refreshRunner;
     private readonly object _debounceLock = new();
     private FileSystemWatcher? _watcher;
     private System.Threading.Timer? _debounceTimer;
@@ -20,6 +20,11 @@ internal sealed class CodexDataService : IDisposable
 
     public event Action<MonitorSnapshot>? SnapshotChanged;
     public event Action<SessionActivity>? SessionCompleted;
+
+    public CodexDataService()
+    {
+        _refreshRunner = new CoalescingRefreshRunner(RefreshOnceAsync);
+    }
 
     public void Start()
     {
@@ -51,7 +56,7 @@ internal sealed class CodexDataService : IDisposable
         {
             _debounceTimer?.Dispose();
             _debounceTimer = new System.Threading.Timer(
-                _ => _ = RefreshAsync(),
+                _ => _ = _refreshRunner.RequestAsync(),
                 null,
                 delay,
                 Timeout.InfiniteTimeSpan);
@@ -60,23 +65,17 @@ internal sealed class CodexDataService : IDisposable
 
     private void OnSessionChanged(object sender, FileSystemEventArgs e) => RequestRefresh();
 
-    private async Task RefreshAsync()
+    private async Task RefreshOnceAsync()
     {
-        if (_disposed || !await _refreshGate.WaitAsync(0)) return;
-        try
+        if (_disposed) return;
+        var summaries = await Task.Run(ScanSessions);
+        if (_disposed) return;
+        var snapshot = BuildSnapshot(summaries);
+        var completed = _completionDetector.Observe(snapshot.Sessions);
+        SnapshotChanged?.Invoke(snapshot);
+        foreach (var session in completed)
         {
-            var summaries = await Task.Run(ScanSessions);
-            var snapshot = BuildSnapshot(summaries);
-            var completed = _completionDetector.Observe(snapshot.Sessions);
-            SnapshotChanged?.Invoke(snapshot);
-            foreach (var session in completed)
-            {
-                SessionCompleted?.Invoke(session);
-            }
-        }
-        finally
-        {
-            _refreshGate.Release();
+            SessionCompleted?.Invoke(session);
         }
     }
 
@@ -402,44 +401,6 @@ internal sealed class CodexDataService : IDisposable
         _disposed = true;
         _watcher?.Dispose();
         _debounceTimer?.Dispose();
-        _refreshGate.Dispose();
-    }
-}
-
-internal sealed class SessionCompletionDetector
-{
-    private Dictionary<string, SessionActivity>? _observed;
-
-    public IReadOnlyList<SessionActivity> Observe(IReadOnlyList<SessionActivity> sessions)
-    {
-        var newest = sessions
-            .GroupBy(item => item.Id)
-            .Select(group => group.OrderByDescending(item => item.UpdatedAt).First())
-            .ToDictionary(item => item.Id, StringComparer.OrdinalIgnoreCase);
-
-        if (_observed is null)
-        {
-            _observed = newest;
-            return Array.Empty<SessionActivity>();
-        }
-
-        var completed = newest.Values
-            .Where(current =>
-                current.State == SessionState.Completed &&
-                _observed.TryGetValue(current.Id, out var previous) &&
-                previous.State == SessionState.Running &&
-                current.UpdatedAt > previous.UpdatedAt)
-            .OrderBy(item => item.UpdatedAt)
-            .ToArray();
-
-        foreach (var current in newest.Values)
-        {
-            if (!_observed.TryGetValue(current.Id, out var previous) ||
-                current.UpdatedAt >= previous.UpdatedAt)
-            {
-                _observed[current.Id] = current;
-            }
-        }
-        return completed;
+        _refreshRunner.Dispose();
     }
 }

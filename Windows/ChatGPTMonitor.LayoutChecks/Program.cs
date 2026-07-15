@@ -6,6 +6,22 @@ static void Check(bool condition, string message)
     if (!condition) throw new InvalidOperationException(message);
 }
 
+static SessionActivity Session(
+    string id,
+    string project,
+    SessionState state,
+    long timestamp,
+    string? turnId)
+{
+    return new SessionActivity(
+        id,
+        project,
+        id,
+        turnId,
+        state,
+        DateTimeOffset.FromUnixTimeSeconds(timestamp).LocalDateTime);
+}
+
 foreach (var dpi in new[] { 96, 120, 144, 168, 192 })
 {
     var metrics = IslandLayout.For(dpi);
@@ -94,5 +110,88 @@ finally
 {
     File.Delete(sessionFile);
 }
+
+var completionDetector = new SessionCompletionDetector();
+Check(completionDetector.Observe(new[]
+{
+    Session("a", "项目", SessionState.Completed, 100, "turn-1")
+}).Count == 0, "首次完成快照只应建立基线");
+
+var fastCompletion = completionDetector.Observe(new[]
+{
+    Session("a", "项目", SessionState.Completed, 101, "turn-2")
+});
+Check(fastCompletion.Count == 1 && fastCompletion[0].TurnId == "turn-2", "漏掉运行快照时仍应识别新完成轮次");
+Check(completionDetector.Observe(new[]
+{
+    Session("a", "项目", SessionState.Completed, 101, "turn-2")
+}).Count == 0, "同一完成轮次不能重复通知");
+
+var missingTurnDetector = new SessionCompletionDetector();
+Check(missingTurnDetector.Observe(Array.Empty<SessionActivity>()).Count == 0, "空快照应建立基线");
+Check(missingTurnDetector.Observe(new[]
+{
+    Session("missing", "项目", SessionState.Completed, 102, null)
+}).Count == 0, "缺少轮次 ID 绝不能通知");
+
+var parallelDetector = new SessionCompletionDetector();
+Check(parallelDetector.Observe(Array.Empty<SessionActivity>()).Count == 0, "多会话空快照应建立基线");
+var parallelCompletions = parallelDetector.Observe(new[]
+{
+    Session("first", "同一项目", SessionState.Completed, 103, "turn-a"),
+    Session("second", "同一项目", SessionState.Completed, 104, "turn-b")
+});
+Check(parallelCompletions.Select(item => item.Id).SequenceEqual(new[] { "first", "second" }), "同项目不同会话必须分别通知");
+
+var candidate = Session("confirm", "项目", SessionState.Completed, 200, "turn-old");
+var confirmationNow = DateTimeOffset.FromUnixTimeSeconds(203).LocalDateTime;
+Check(CompletionConfirmation.Matches(
+    candidate,
+    candidate,
+    confirmationNow,
+    TimeSpan.FromSeconds(15)), "未变化的完成轮次应通过复核");
+Check(!CompletionConfirmation.Matches(
+    candidate,
+    Session("confirm", "项目", SessionState.Running, 201, "turn-new"),
+    confirmationNow,
+    TimeSpan.FromSeconds(15)), "新运行轮次必须拒绝旧候选");
+Check(!CompletionConfirmation.Matches(
+    candidate,
+    Session("confirm", "项目", SessionState.Completed, 201, "turn-old"),
+    confirmationNow,
+    TimeSpan.FromSeconds(15)), "完成时间变化必须拒绝旧候选");
+Check(!CompletionConfirmation.Matches(
+    candidate,
+    candidate,
+    DateTimeOffset.FromUnixTimeSeconds(216).LocalDateTime,
+    TimeSpan.FromSeconds(15)), "超过新鲜度的候选必须拒绝");
+Check(!CompletionConfirmation.Matches(
+    candidate,
+    candidate,
+    DateTimeOffset.FromUnixTimeSeconds(199).LocalDateTime,
+    TimeSpan.FromSeconds(15)), "未来时间的候选必须拒绝");
+
+var firstRefreshStarted = new TaskCompletionSource(
+    TaskCreationOptions.RunContinuationsAsynchronously);
+var allowFirstRefreshToFinish = new TaskCompletionSource(
+    TaskCreationOptions.RunContinuationsAsynchronously);
+var refreshCount = 0;
+using (var refreshRunner = new CoalescingRefreshRunner(async () =>
+{
+    var current = Interlocked.Increment(ref refreshCount);
+    if (current == 1)
+    {
+        firstRefreshStarted.TrySetResult();
+        await allowFirstRefreshToFinish.Task;
+    }
+}))
+{
+    var firstRefresh = refreshRunner.RequestAsync();
+    await firstRefreshStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+    var secondRefresh = refreshRunner.RequestAsync();
+    allowFirstRefreshToFinish.TrySetResult();
+    await Task.WhenAll(firstRefresh, secondRefresh).WaitAsync(TimeSpan.FromSeconds(2));
+}
+Check(refreshCount == 2, "扫描期间到达的刷新请求不能丢失");
 
 Console.WriteLine("全部布局与通知契约检查通过");
