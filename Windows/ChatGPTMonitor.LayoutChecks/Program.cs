@@ -22,6 +22,23 @@ static SessionActivity Session(
         DateTimeOffset.FromUnixTimeSeconds(timestamp).LocalDateTime);
 }
 
+static SessionSummary ParseSession(string contents)
+{
+    var file = Path.Combine(
+        Path.GetTempPath(),
+        $"codex-session-hierarchy-{Guid.NewGuid():N}.jsonl");
+    try
+    {
+        File.WriteAllText(file, contents);
+        return CodexDataService.ParseSession(file)
+            ?? throw new InvalidOperationException("测试会话解析为空");
+    }
+    finally
+    {
+        File.Delete(file);
+    }
+}
+
 foreach (var dpi in new[] { 96, 120, 144, 168, 192 })
 {
     var metrics = IslandLayout.For(dpi);
@@ -151,6 +168,34 @@ finally
 {
     File.Delete(newMessageFile);
 }
+
+var rootHierarchySummary = ParseSession("""
+    {"type":"session_meta","payload":{"type":"session_meta","id":"root","timestamp":"2026-07-15T02:07:55Z","cwd":"C:\\Projects\\Replaypoker(ios)","source":"vscode"}}
+    {"type":"event_msg","payload":{"type":"task_started","turn_id":"root-turn","started_at":1784081275}}
+    {"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"total_tokens":1000}}}}
+    """);
+var childHierarchySummary = ParseSession("""
+    {"type":"session_meta","payload":{"type":"session_meta","id":"child","timestamp":"2026-07-15T02:36:42Z","cwd":"C:\\Projects\\Replaypoker(ios)","parent_thread_id":"root","source":{"subagent":{"thread_spawn":{"parent_thread_id":"root"}}}}}
+    {"type":"event_msg","payload":{"type":"task_complete","turn_id":"child-turn","completed_at":1784083610}}
+    {"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"total_tokens":250}}}}
+    """);
+var guardianHierarchySummary = ParseSession("""
+    {"type":"session_meta","payload":{"type":"session_meta","id":"guardian","timestamp":"2026-07-15T02:37:00Z","cwd":"C:\\Projects\\Replaypoker(ios)","source":{"other":"guardian"}}}
+    {"type":"event_msg","payload":{"type":"task_complete","turn_id":"guardian-turn","completed_at":1784083620}}
+    """);
+
+Check(rootHierarchySummary.IsTopLevel, "无父会话的 vscode 会话应为顶层");
+Check(!childHierarchySummary.IsTopLevel, "thread_spawn 子代理不能成为通知会话");
+Check(!guardianHierarchySummary.IsTopLevel, "guardian 不能成为通知会话");
+var hierarchySnapshot = CodexDataService.BuildSnapshot(new[]
+{
+    rootHierarchySummary,
+    childHierarchySummary
+});
+Check(hierarchySnapshot.LifetimeTokens == 1_250, "内部会话 Token 不得从统计中丢失");
+Check(
+    !hierarchySnapshot.Sessions.Single(item => item.Id == "child").IsTopLevel,
+    "内部身份必须传到活动模型");
 
 var completionDetector = new SessionCompletionDetector();
 Check(completionDetector.Observe(new[]

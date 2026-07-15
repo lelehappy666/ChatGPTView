@@ -141,6 +141,7 @@ internal sealed class CodexDataService : IDisposable
         string? nickname = null;
         string? sessionTitle = null;
         string? turnId = null;
+        var isTopLevel = true;
         var startedAt = File.GetCreationTime(file);
         var updatedAt = startedAt;
         var state = SessionState.Completed;
@@ -173,6 +174,7 @@ internal sealed class CodexDataService : IDisposable
                         cwd = GetString(payload, "cwd") ?? cwd;
                         id = GetString(payload, "id") ?? GetString(payload, "session_id") ?? id;
                         nickname = GetString(payload, "agent_nickname") ?? nickname;
+                        isTopLevel = IsTopLevelSession(payload);
                         if (DateTime.TryParse(GetString(payload, "timestamp"), out var parsed))
                             startedAt = parsed.ToLocalTime();
                         break;
@@ -246,10 +248,11 @@ internal sealed class CodexDataService : IDisposable
             state,
             weeklyUsed,
             weeklyLimitId,
-            weeklyResetsAt);
+            weeklyResetsAt,
+            isTopLevel);
     }
 
-    private static MonitorSnapshot BuildSnapshot(IReadOnlyList<SessionSummary> summaries)
+    internal static MonitorSnapshot BuildSnapshot(IReadOnlyList<SessionSummary> summaries)
     {
         var quotaCandidates = summaries.Where(item => item.WeeklyUsedPercent.HasValue).ToArray();
         var canonical = quotaCandidates.Where(item => item.WeeklyLimitId == "codex").ToArray();
@@ -276,7 +279,8 @@ internal sealed class CodexDataService : IDisposable
                 item.DisplayName,
                 item.TurnId,
                 item.State,
-                item.UpdatedAt))
+                item.UpdatedAt,
+                item.IsTopLevel))
             .OrderBy(item => item.UpdatedAt)
             .ToArray();
 
@@ -389,6 +393,38 @@ internal sealed class CodexDataService : IDisposable
         element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
+
+    internal static bool IsTopLevelSession(JsonElement payload)
+    {
+        if (!string.IsNullOrWhiteSpace(GetString(payload, "parent_thread_id"))) return false;
+        return !payload.TryGetProperty("source", out var source) || !IsInternalSource(source);
+    }
+
+    private static bool IsInternalSource(JsonElement value)
+    {
+        if (value.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in value.EnumerateObject())
+            {
+                if (property.NameEquals("subagent")) return true;
+                if (property.NameEquals("other") &&
+                    property.Value.ValueKind == JsonValueKind.String &&
+                    string.Equals(
+                        property.Value.GetString(),
+                        "guardian",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+                if (IsInternalSource(property.Value)) return true;
+            }
+        }
+        else if (value.ValueKind == JsonValueKind.Array)
+        {
+            return value.EnumerateArray().Any(IsInternalSource);
+        }
+        return false;
+    }
 
     private static bool TryGetDouble(JsonElement element, string property, out double value)
     {

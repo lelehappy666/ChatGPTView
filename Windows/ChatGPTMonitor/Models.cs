@@ -19,7 +19,8 @@ internal sealed record SessionSummary(
     SessionState State,
     double? WeeklyUsedPercent,
     string? WeeklyLimitId,
-    DateTime? WeeklyResetsAt);
+    DateTime? WeeklyResetsAt,
+    bool IsTopLevel = true);
 
 internal sealed record SessionActivity(
     string Id,
@@ -27,7 +28,8 @@ internal sealed record SessionActivity(
     string DisplayName,
     string? TurnId,
     SessionState State,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    bool IsTopLevel = true);
 
 internal sealed record ProjectActivity(
     string Name,
