@@ -38,6 +38,30 @@ final class JSONLDecoderTests: XCTestCase {
         XCTAssertEqual(summary.sessionTitle, "修复牌桌结算状态")
     }
 
+    func testNewUserMessageImmediatelyInvalidatesPreviousCompletedTurn() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("jsonl")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let contents = """
+        {"timestamp":"2026-07-14T06:36:17Z","type":"session_meta","payload":{"type":"session_meta","id":"session-new-message","timestamp":"2026-07-14T06:36:17Z","cwd":"/Users/test/Projects/Replaypoker"}}
+        {"timestamp":"2026-07-14T06:36:18Z","type":"event_msg","payload":{"type":"user_message","message":"第一轮任务"}}
+        {"timestamp":"2026-07-14T06:36:19Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-old","started_at":1784010977}}
+        {"timestamp":"2026-07-14T06:36:20Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-old","completed_at":1784010988}}
+        {"timestamp":"2026-07-14T06:36:21Z","type":"event_msg","payload":{"type":"user_message","message":"继续修复下一轮"}}
+        """
+        try contents.write(to: url, atomically: true, encoding: .utf8)
+
+        let summary = try XCTUnwrap(SessionScanner.parseFile(url))
+
+        XCTAssertEqual(summary.state, .running)
+        XCTAssertNil(summary.turnID)
+        XCTAssertEqual(
+            summary.updatedAt,
+            ISO8601DateFormatter().date(from: "2026-07-14T06:36:21Z")
+        )
+    }
+
     func testSessionIdentityFallsBackToFileName() throws {
         let summary = try XCTUnwrap(
             SessionScanner.parseFile(fixtureURL(named: "session-running"))

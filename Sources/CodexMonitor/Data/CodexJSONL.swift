@@ -2,6 +2,7 @@ import Foundation
 
 struct CodexEnvelope: Decodable {
     let type: String
+    let timestamp: String?
     let payload: Payload
 
     struct Payload: Decodable {

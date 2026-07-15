@@ -69,6 +69,9 @@ enum SessionScanner {
                 if sessionTitle == nil {
                     sessionTitle = readableSessionTitle(from: payload.message)
                 }
+                state = .running
+                turnID = nil
+                updatedAt = envelope.timestamp.flatMap(parseTimestamp) ?? updatedAt
             case "task_started":
                 state = .running
                 turnID = payload.turnID
@@ -220,12 +223,20 @@ enum SessionScanner {
         }
         return prefix.contains("\"type\":\"task_started\"") ||
             prefix.contains("\"type\":\"task_complete\"") ||
-            prefix.contains("\"type\":\"turn_aborted\"")
+            prefix.contains("\"type\":\"turn_aborted\"") ||
+            prefix.contains("\"type\":\"user_message\"")
     }
 
     private static func lifecycleEvent(from envelope: CodexEnvelope) -> LifecycleEvent? {
         let payload = envelope.payload
         switch payload.type ?? envelope.type {
+        case "user_message":
+            return LifecycleEvent(
+                state: .running,
+                updatedAt: envelope.timestamp.flatMap(parseTimestamp),
+                duration: 0,
+                turnID: nil
+            )
         case "task_started":
             return LifecycleEvent(
                 state: .running,

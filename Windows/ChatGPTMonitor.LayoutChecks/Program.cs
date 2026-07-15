@@ -111,6 +111,47 @@ finally
     File.Delete(sessionFile);
 }
 
+var missingTurnFile = Path.Combine(
+    Path.GetTempPath(),
+    $"codex-session-missing-turn-{Guid.NewGuid():N}.jsonl");
+try
+{
+    File.WriteAllText(missingTurnFile, """
+        {"type":"session_meta","payload":{"type":"session_meta","id":"session-missing","timestamp":"2026-07-14T06:36:17Z","cwd":"C:\\Projects\\Replaypoker"}}
+        {"type":"event_msg","payload":{"type":"task_started","turn_id":"turn-old","started_at":1784010977}}
+        {"type":"event_msg","payload":{"type":"task_complete","completed_at":1784010988}}
+        """);
+
+    var missingTurnSummary = CodexDataService.ParseSession(missingTurnFile);
+    Check(missingTurnSummary?.TurnId is null, "缺少轮次 ID 的最新生命周期不能沿用上一轮身份");
+}
+finally
+{
+    File.Delete(missingTurnFile);
+}
+
+var newMessageFile = Path.Combine(
+    Path.GetTempPath(),
+    $"codex-session-new-message-{Guid.NewGuid():N}.jsonl");
+try
+{
+    File.WriteAllText(newMessageFile, """
+        {"type":"session_meta","payload":{"type":"session_meta","id":"session-new-message","timestamp":"2026-07-14T06:36:17Z","cwd":"C:\\Projects\\Replaypoker"}}
+        {"type":"event_msg","payload":{"type":"user_message","message":"第一轮任务"}}
+        {"type":"event_msg","payload":{"type":"task_started","turn_id":"turn-old","started_at":1784010977}}
+        {"type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-old","completed_at":1784010988}}
+        {"type":"event_msg","payload":{"type":"user_message","message":"继续修复下一轮"}}
+        """);
+
+    var newMessageSummary = CodexDataService.ParseSession(newMessageFile);
+    Check(newMessageSummary?.State == SessionState.Running, "新用户消息必须立即使上一轮完成状态失效");
+    Check(newMessageSummary?.TurnId is null, "新用户消息等待新轮次时不能沿用上一轮 ID");
+}
+finally
+{
+    File.Delete(newMessageFile);
+}
+
 var completionDetector = new SessionCompletionDetector();
 Check(completionDetector.Observe(new[]
 {

@@ -177,18 +177,18 @@ internal sealed class CodexDataService : IDisposable
                             startedAt = parsed.ToLocalTime();
                         break;
                     case "task_started":
-                        turnId = GetString(payload, "turn_id") ?? turnId;
+                        turnId = GetString(payload, "turn_id");
                         state = SessionState.Running;
                         updatedAt = UnixDate(payload, "started_at") ?? updatedAt;
                         break;
                     case "task_complete":
-                        turnId = GetString(payload, "turn_id") ?? turnId;
+                        turnId = GetString(payload, "turn_id");
                         state = SessionState.Completed;
                         updatedAt = UnixDate(payload, "completed_at") ?? updatedAt;
                         longest = Max(longest, Duration(payload));
                         break;
                     case "turn_aborted":
-                        turnId = GetString(payload, "turn_id") ?? turnId;
+                        turnId = GetString(payload, "turn_id");
                         state = SessionState.Failed;
                         updatedAt = UnixDate(payload, "completed_at") ?? updatedAt;
                         longest = Max(longest, Duration(payload));
@@ -213,6 +213,10 @@ internal sealed class CodexDataService : IDisposable
                         break;
                     case "user_message":
                         sessionTitle ??= ReadableSessionTitle(GetString(payload, "message"));
+                        turnId = null;
+                        state = SessionState.Running;
+                        if (DateTime.TryParse(GetString(root, "timestamp"), out var messageAt))
+                            updatedAt = messageAt.ToLocalTime();
                         break;
                 }
             }
