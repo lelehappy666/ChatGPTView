@@ -196,6 +196,23 @@ final class ProjectCompletionDetectorTests: XCTestCase {
         ))
     }
 
+    func testNotificationFreshnessCoversLargeSessionScanAndConfirmationDelay() {
+        let completed = session(
+            "large",
+            project: "大型项目",
+            state: .completed,
+            at: 100,
+            turnID: "turn-large"
+        )
+
+        XCTAssertTrue(CompletionConfirmation.matches(
+            candidate: completed,
+            latest: completed,
+            now: Date(timeIntervalSince1970: 145),
+            freshness: CompletionNotificationPolicy.freshness
+        ))
+    }
+
     func testCompletionConfirmationRejectsFutureCompletionTimestamp() {
         let completed = session(
             "a",

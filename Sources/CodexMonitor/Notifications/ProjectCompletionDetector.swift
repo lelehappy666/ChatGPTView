@@ -1,5 +1,9 @@
 import Foundation
 
+enum CompletionNotificationPolicy {
+    static let freshness: TimeInterval = 120
+}
+
 struct SessionCompletionDetector {
     private var seenCompletedTurns: Set<String>?
 
