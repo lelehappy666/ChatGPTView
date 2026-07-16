@@ -6,7 +6,7 @@ enum NotchLayout {
     static let pagerHeight: CGFloat = 36
     static let pageContentHeight: CGFloat = 236
     static let statisticsBottomSafeArea: CGFloat = 14
-    static let pageCount = 4
+    static let pageCount = 5
 }
 
 enum GitHubPageLoadPolicy {

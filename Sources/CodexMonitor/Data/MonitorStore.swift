@@ -20,6 +20,7 @@ final class MonitorStore: ObservableObject {
     private let root: URL
     private let debounceNanoseconds: UInt64
     private let scanner: Scanner
+    private let projectAnalyticsIndex = ProjectAnalyticsIndex()
     private var refreshTask: Task<Void, Never>?
     private var isScanning = false
     private var refreshPending = false
@@ -63,7 +64,12 @@ final class MonitorStore: ObservableObject {
             do {
                 let sessions = try await scanner(root)
                 guard !Task.isCancelled else { return }
-                snapshot = UsageAggregator.makeSnapshot(sessions: sessions)
+                let projectAnalytics = await projectAnalyticsIndex.update(sessions: sessions)
+                guard !Task.isCancelled else { return }
+                snapshot = UsageAggregator.makeSnapshot(
+                    sessions: sessions,
+                    projectAnalytics: projectAnalytics
+                )
                 errorMessage = nil
                 refreshState = .updated
             } catch {

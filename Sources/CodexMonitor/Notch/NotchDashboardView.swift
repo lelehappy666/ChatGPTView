@@ -87,6 +87,11 @@ struct NotchDashboardView: View {
         case 1:
             DailyActivityPage(snapshot: snapshot)
         case 2:
+            ProjectAnalyticsPage(
+                analytics: snapshot.projectAnalytics,
+                reduceMotion: reduceMotion
+            )
+        case 3:
             StatisticsPage(snapshot: snapshot)
         default:
             GitHubActivityPage(store: githubStore)

@@ -3,6 +3,7 @@ import Foundation
 enum UsageAggregator {
     static func makeSnapshot(
         sessions: [SessionSummary],
+        projectAnalytics: ProjectAnalyticsSnapshot = .empty,
         now: Date = .now,
         calendar: Calendar = .current
     ) -> MonitorSnapshot {
@@ -99,7 +100,8 @@ enum UsageAggregator {
             longestStreakDays: streaks.longest,
             projects: projects,
             sessions: sessionActivities,
-            lastUpdatedAt: sessions.map(\.updatedAt).max()
+            lastUpdatedAt: sessions.map(\.updatedAt).max(),
+            projectAnalytics: projectAnalytics
         )
     }
 

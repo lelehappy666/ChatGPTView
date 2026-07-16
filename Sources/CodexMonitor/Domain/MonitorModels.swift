@@ -13,6 +13,46 @@ struct UsageDay: Identifiable, Equatable, Sendable {
     let sessions: Int
 }
 
+enum ProjectAnalyticsRange: CaseIterable, Hashable, Sendable {
+    case sevenDays
+    case thirtyDays
+    case all
+}
+
+struct ProjectAnalyticsRow: Identifiable, Equatable, Sendable {
+    let id: String
+    let name: String
+    let tokens: Int
+    let sessions: Int
+    let activeDays: Int
+    let share: Double
+}
+
+struct ProjectAnalyticsPeriodSnapshot: Equatable, Sendable {
+    let activeProjects: Int
+    let totalTokens: Int
+    let totalSessions: Int
+    let rows: [ProjectAnalyticsRow]
+
+    static let empty = ProjectAnalyticsPeriodSnapshot(
+        activeProjects: 0,
+        totalTokens: 0,
+        totalSessions: 0,
+        rows: []
+    )
+}
+
+struct ProjectAnalyticsSnapshot: Equatable, Sendable {
+    let periods: [ProjectAnalyticsRange: ProjectAnalyticsPeriodSnapshot]
+    let generatedAt: Date?
+
+    static let empty = ProjectAnalyticsSnapshot(periods: [:], generatedAt: nil)
+
+    func period(for range: ProjectAnalyticsRange) -> ProjectAnalyticsPeriodSnapshot {
+        periods[range] ?? .empty
+    }
+}
+
 enum ProjectRunState: Int, Codable, Sendable {
     case failed = 0
     case running = 1
@@ -111,6 +151,7 @@ struct MonitorSnapshot: Equatable, Sendable {
     let projects: [ProjectActivity]
     let sessions: [SessionActivity]
     let lastUpdatedAt: Date?
+    var projectAnalytics: ProjectAnalyticsSnapshot = .empty
 
     static let empty = MonitorSnapshot(
         weeklyQuota: WeeklyQuota(remainingPercent: nil, resetsAt: nil),
