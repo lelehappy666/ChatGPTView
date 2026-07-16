@@ -35,8 +35,8 @@ final class AppIntegrationTests: XCTestCase {
         )
 
         XCTAssertEqual(plist["CFBundleIconFile"] as? String, "AppIcon")
-        XCTAssertEqual(plist["CFBundleShortVersionString"] as? String, "0.1.7")
-        XCTAssertEqual(plist["CFBundleVersion"] as? String, "8")
+        XCTAssertEqual(plist["CFBundleShortVersionString"] as? String, "0.1.8")
+        XCTAssertEqual(plist["CFBundleVersion"] as? String, "9")
         XCTAssertTrue(
             FileManager.default.fileExists(
                 atPath: root.appendingPathComponent("Resources/AppIcon.icns").path
@@ -141,6 +141,22 @@ final class AppIntegrationTests: XCTestCase {
                     "                            .contentShape(Rectangle())"
             )
         )
+    }
+
+    func testProjectAnalyticsRowsDoNotClaimMouseFocusFromDashboardSwipe() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appendingPathComponent(
+                "Sources/CodexMonitor/Notch/ProjectAnalyticsPage.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertFalse(source.contains(".focusable()"))
+        XCTAssertFalse(source.contains("@FocusState"))
     }
 
     func testSummaryPagesUseTheSharedCardLayout() throws {

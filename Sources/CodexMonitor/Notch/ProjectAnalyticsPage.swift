@@ -6,15 +6,13 @@ struct ProjectAnalyticsPage: View {
 
     @State private var selectedRange: ProjectAnalyticsRange = .sevenDays
     @State private var hoveredProjectID: String?
-    @FocusState private var focusedProjectID: String?
 
     private var period: ProjectAnalyticsPeriodSnapshot {
         analytics.period(for: selectedRange)
     }
 
     private var detailRow: ProjectAnalyticsRow? {
-        let selectedID = hoveredProjectID ?? focusedProjectID
-        return period.rows.first { $0.id == selectedID }
+        period.rows.first { $0.id == hoveredProjectID }
     }
 
     private var maximumTokens: Int {
@@ -70,13 +68,11 @@ struct ProjectAnalyticsPage: View {
                         ProjectRankingRow(
                             row: row,
                             maximumTokens: maximumTokens,
-                            highlighted: row.id == (hoveredProjectID ?? focusedProjectID),
+                            highlighted: row.id == hoveredProjectID,
                             reduceMotion: reduceMotion
                         )
                         .frame(height: 18)
                         .contentShape(Rectangle())
-                        .focusable()
-                        .focused($focusedProjectID, equals: row.id)
                         .onHover { isHovered in
                             if isHovered {
                                 hoveredProjectID = row.id
@@ -106,7 +102,6 @@ struct ProjectAnalyticsPage: View {
         )
         .onChange(of: selectedRange) {
             hoveredProjectID = nil
-            focusedProjectID = nil
         }
     }
 
