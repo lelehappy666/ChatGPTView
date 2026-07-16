@@ -35,8 +35,8 @@ final class AppIntegrationTests: XCTestCase {
         )
 
         XCTAssertEqual(plist["CFBundleIconFile"] as? String, "AppIcon")
-        XCTAssertEqual(plist["CFBundleShortVersionString"] as? String, "0.1.8")
-        XCTAssertEqual(plist["CFBundleVersion"] as? String, "9")
+        XCTAssertEqual(plist["CFBundleShortVersionString"] as? String, "0.1.9")
+        XCTAssertEqual(plist["CFBundleVersion"] as? String, "10")
         XCTAssertTrue(
             FileManager.default.fileExists(
                 atPath: root.appendingPathComponent("Resources/AppIcon.icns").path
@@ -87,6 +87,23 @@ final class AppIntegrationTests: XCTestCase {
         )
 
         XCTAssertTrue(source.contains(".environment(\\.colorScheme, .dark)"))
+    }
+
+    func testMenuBarStatusItemFitsNotchedDisplayRightSide() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appendingPathComponent(
+                "Sources/CodexMonitor/MenuBar/MenuBarController.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertFalse(source.contains("withLength: 300"))
+        XCTAssertTrue(source.contains("statusItemWidth: CGFloat = 196"))
+        XCTAssertTrue(source.contains("withLength: MenuBarLayout.statusItemWidth"))
     }
 
     func testDashboardRendersOnlyTheVisiblePageDuringTransitions() throws {

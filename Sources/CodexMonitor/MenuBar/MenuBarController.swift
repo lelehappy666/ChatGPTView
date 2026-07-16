@@ -2,10 +2,16 @@ import AppKit
 import Combine
 import SwiftUI
 
+enum MenuBarLayout {
+    static let statusItemWidth: CGFloat = 196
+}
+
 @MainActor
 final class MenuBarController: NSObject {
     private let store: MonitorStore
-    private let statusItem = NSStatusBar.system.statusItem(withLength: 300)
+    private let statusItem = NSStatusBar.system.statusItem(
+        withLength: MenuBarLayout.statusItemWidth
+    )
     private var hostingView: NSHostingView<MenuBarContentView>?
     private var refreshItem: NSMenuItem?
     private var cancellables: Set<AnyCancellable> = []
