@@ -11,12 +11,12 @@ final class AppIntegrationTests: XCTestCase {
         )
     }
 
-    func testPageNavigationClampsToFourPages() {
+    func testPageNavigationClampsToFivePages() {
         XCTAssertEqual(PageNavigation.target(from: 0, delta: 30), 0)
         XCTAssertEqual(PageNavigation.target(from: 0, delta: -30), 1)
-        XCTAssertEqual(PageNavigation.target(from: 2, delta: -30), 3)
-        XCTAssertEqual(PageNavigation.target(from: 3, delta: -30), 3)
-        XCTAssertEqual(PageNavigation.target(from: 3, delta: 30), 2)
+        XCTAssertEqual(PageNavigation.target(from: 3, delta: -30), 4)
+        XCTAssertEqual(PageNavigation.target(from: 4, delta: -30), 4)
+        XCTAssertEqual(PageNavigation.target(from: 4, delta: 30), 3)
     }
 
     func testAppMetadataDeclaresPackagedIcon() throws {
@@ -35,8 +35,8 @@ final class AppIntegrationTests: XCTestCase {
         )
 
         XCTAssertEqual(plist["CFBundleIconFile"] as? String, "AppIcon")
-        XCTAssertEqual(plist["CFBundleShortVersionString"] as? String, "0.1.5")
-        XCTAssertEqual(plist["CFBundleVersion"] as? String, "6")
+        XCTAssertEqual(plist["CFBundleShortVersionString"] as? String, "0.1.7")
+        XCTAssertEqual(plist["CFBundleVersion"] as? String, "8")
         XCTAssertTrue(
             FileManager.default.fileExists(
                 atPath: root.appendingPathComponent("Resources/AppIcon.icns").path
@@ -106,6 +106,41 @@ final class AppIntegrationTests: XCTestCase {
             source.contains("NotchLayout.size.width * CGFloat(NotchLayout.pageCount)")
         )
         XCTAssertFalse(source.contains(".offset(x: -CGFloat(page)"))
+    }
+
+    func testDashboardSwipeCoexistsWithInteractivePageControls() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appendingPathComponent(
+                "Sources/CodexMonitor/Notch/NotchDashboardView.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(source.contains(".simultaneousGesture("))
+    }
+
+    func testProjectRangeButtonsUseWholeVisualFrameAsHitTarget() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appendingPathComponent(
+                "Sources/CodexMonitor/Notch/ProjectAnalyticsPage.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(
+            source.contains(
+                ".frame(width: 34, height: 19)\n" +
+                    "                            .contentShape(Rectangle())"
+            )
+        )
     }
 
     func testSummaryPagesUseTheSharedCardLayout() throws {

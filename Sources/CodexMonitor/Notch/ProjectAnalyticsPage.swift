@@ -137,6 +137,7 @@ struct ProjectAnalyticsPage: View {
                             .font(.system(size: 7.5, weight: .semibold))
                             .foregroundStyle(selectedRange == range ? Color.white : Color.secondary)
                             .frame(width: 34, height: 19)
+                            .contentShape(Rectangle())
                             .background(
                                 selectedRange == range
                                     ? Color(red: 0.61, green: 0.53, blue: 0.91)

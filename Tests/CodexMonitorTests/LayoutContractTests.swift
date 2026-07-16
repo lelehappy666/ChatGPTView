@@ -6,7 +6,7 @@ final class LayoutContractTests: XCTestCase {
         XCTAssertEqual(NotchLayout.size, CGSize(width: 420, height: 320))
         XCTAssertEqual(NotchLayout.pageContentHeight, 236)
         XCTAssertGreaterThanOrEqual(NotchLayout.statisticsBottomSafeArea, 14)
-        XCTAssertEqual(NotchLayout.pageCount, 4)
+        XCTAssertEqual(NotchLayout.pageCount, 5)
     }
 
     func testGitHubLoadWaitsUntilPageTransitionFinishes() {

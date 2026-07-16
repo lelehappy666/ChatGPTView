@@ -21,7 +21,7 @@ struct NotchDashboardView: View {
             .frame(width: NotchLayout.size.width, height: NotchLayout.pageContentHeight)
             .clipped()
             .contentShape(Rectangle())
-            .gesture(
+            .simultaneousGesture(
                 DragGesture(minimumDistance: 12).onEnded { value in
                     navigate(
                         to: PageNavigation.target(
