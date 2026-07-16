@@ -18,6 +18,15 @@ internal sealed class TopIslandForm : Form
         UseAnimation = true,
         UseFading = true
     };
+    private readonly ToolTip _projectToolTip = new()
+    {
+        InitialDelay = 0,
+        ReshowDelay = 0,
+        AutoPopDelay = 10_000,
+        ShowAlways = true,
+        UseAnimation = true,
+        UseFading = true
+    };
     private readonly System.Windows.Forms.Timer _animationTimer;
     private readonly System.Windows.Forms.Timer _openTimer;
     private readonly System.Windows.Forms.Timer _closeTimer;
@@ -25,7 +34,9 @@ internal sealed class TopIslandForm : Form
     private MonitorSnapshot _snapshot = MonitorSnapshot.Empty;
     private IslandMetrics _metrics;
     private IslandPage _page = IslandPage.Quota;
+    private ProjectAnalyticsRange _projectRange = ProjectAnalyticsRange.SevenDays;
     private int _hoveredActivityCell = -1;
+    private int _hoveredProjectRow = -1;
     private Size _animationStart;
     private Size _animationTarget;
     private int _animationStep;
@@ -142,7 +153,9 @@ internal sealed class TopIslandForm : Form
                 _metrics,
                 _renderExpanded,
                 _page,
-                _hoveredActivityCell));
+                _hoveredActivityCell,
+                _projectRange,
+                _hoveredProjectRow));
     }
 
     protected override void OnMouseDown(MouseEventArgs e)
@@ -155,11 +168,24 @@ internal sealed class TopIslandForm : Form
         {
             _page = (IslandPage)page;
             _hoveredActivityCell = -1;
+            _hoveredProjectRow = -1;
             _activityToolTip.Hide(this);
+            _projectToolTip.Hide(this);
             Invalidate();
             return;
         }
 
+        if (_expanded && _page == IslandPage.ProjectAnalytics)
+        {
+            var range = _metrics.ProjectRangeAt(e.Location);
+            if (range >= 0 && range != (int)_projectRange)
+            {
+                _projectRange = (ProjectAnalyticsRange)range;
+                _hoveredProjectRow = -1;
+                _projectToolTip.Hide(this);
+                Invalidate();
+            }
+        }
     }
 
     protected override void OnMouseEnter(EventArgs e)
@@ -177,22 +203,44 @@ internal sealed class TopIslandForm : Form
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        var next = _expanded && _page == IslandPage.Activity
+        var nextActivity = _expanded && _page == IslandPage.Activity
             ? _metrics.ActivityCellAt(e.Location)
             : -1;
-        if (next == _hoveredActivityCell) return;
-
-        _hoveredActivityCell = next;
-        _activityToolTip.Hide(this);
-        if (next >= 0)
+        var period = _snapshot.ProjectAnalytics.For(_projectRange);
+        var nextProject = _expanded && _page == IslandPage.ProjectAnalytics
+            ? _metrics.ProjectRowAt(e.Location)
+            : -1;
+        if (nextProject >= period.Rows.Count) nextProject = -1;
+        if (nextActivity == _hoveredActivityCell &&
+            nextProject == _hoveredProjectRow)
         {
-            var date = DateTime.Today.AddDays(-59 + next);
+            return;
+        }
+
+        _hoveredActivityCell = nextActivity;
+        _hoveredProjectRow = nextProject;
+        _activityToolTip.Hide(this);
+        _projectToolTip.Hide(this);
+        if (nextActivity >= 0)
+        {
+            var date = DateTime.Today.AddDays(-59 + nextActivity);
             var day = _snapshot.DailyActivity.FirstOrDefault(item => item.Date.Date == date);
             var text = day is null
                 ? $"{date:yyyy年M月d日}\n无活动"
                 : $"{date:yyyy年M月d日}\n{FormatTokens(day.Tokens)} Token · {day.Sessions} 个会话";
             _activityToolTip.Show(
                 text,
+                this,
+                e.X + _metrics.ScaleLength(12),
+                e.Y + _metrics.ScaleLength(16),
+                10_000);
+        }
+        else if (nextProject >= 0)
+        {
+            var row = period.Rows[nextProject];
+            var average = row.Sessions > 0 ? row.Tokens / row.Sessions : 0;
+            _projectToolTip.Show(
+                $"{row.Name}\n{row.Sessions} 次会话 · {row.ActiveDays} 个活跃日 · 平均 {FormatTokens(average)} Token/会话",
                 this,
                 e.X + _metrics.ScaleLength(12),
                 e.Y + _metrics.ScaleLength(16),
@@ -212,7 +260,9 @@ internal sealed class TopIslandForm : Form
             _closeTimer.Start();
         }
         _hoveredActivityCell = -1;
+        _hoveredProjectRow = -1;
         _activityToolTip.Hide(this);
+        _projectToolTip.Hide(this);
         Invalidate();
     }
 
@@ -262,7 +312,9 @@ internal sealed class TopIslandForm : Form
         {
             _renderExpanded = false;
             _hoveredActivityCell = -1;
+            _hoveredProjectRow = -1;
             _activityToolTip.Hide(this);
+            _projectToolTip.Hide(this);
             Invalidate();
         }
     }
@@ -301,6 +353,7 @@ internal sealed class TopIslandForm : Form
             _openTimer.Dispose();
             _closeTimer.Dispose();
             _activityToolTip.Dispose();
+            _projectToolTip.Dispose();
         }
         base.Dispose(disposing);
     }

@@ -36,9 +36,10 @@ internal sealed class IslandMetrics
 
         NavigationTabs = new[]
         {
-            Scale(new Rectangle(18, 56, 82, 30)),
-            Scale(new Rectangle(110, 56, 82, 30)),
-            Scale(new Rectangle(202, 56, 92, 30))
+            Scale(new Rectangle(18, 56, 90, 30)),
+            Scale(new Rectangle(116, 56, 90, 30)),
+            Scale(new Rectangle(214, 56, 90, 30)),
+            Scale(new Rectangle(312, 56, 100, 30))
         };
         PageSafeBounds = Scale(new Rectangle(18, 96, 396, 188));
         QuotaLeftBounds = Scale(new Rectangle(18, 106, 124, 152));
@@ -52,6 +53,21 @@ internal sealed class IslandMetrics
             Scale(new Rectangle(18, 194, 192, 76)),
             Scale(new Rectangle(220, 194, 192, 76))
         };
+        ProjectRangeButtons = new[]
+        {
+            Scale(new Rectangle(278, 98, 40, 24)),
+            Scale(new Rectangle(322, 98, 42, 24)),
+            Scale(new Rectangle(368, 98, 44, 24))
+        };
+        ProjectSummaryCards = new[]
+        {
+            Scale(new Rectangle(18, 128, 120, 40)),
+            Scale(new Rectangle(146, 128, 120, 40)),
+            Scale(new Rectangle(274, 128, 138, 40))
+        };
+        ProjectRows = Enumerable.Range(0, 6)
+            .Select(index => Scale(new Rectangle(18, 190 + index * 15, 394, 14)))
+            .ToArray();
     }
 
     public int Dpi { get; }
@@ -73,6 +89,9 @@ internal sealed class IslandMetrics
     public Rectangle ActivityGridBounds { get; }
     public Rectangle ActivityMetricsBounds { get; }
     public IReadOnlyList<Rectangle> StatisticsCards { get; }
+    public IReadOnlyList<Rectangle> ProjectRangeButtons { get; }
+    public IReadOnlyList<Rectangle> ProjectSummaryCards { get; }
+    public IReadOnlyList<Rectangle> ProjectRows { get; }
 
     public int ScaleLength(int value) => (int)Math.Round(value * ScaleFactor);
 
@@ -117,6 +136,24 @@ internal sealed class IslandMetrics
         for (var index = 0; index < ActivityColumns * ActivityRows; index++)
         {
             if (ActivityCell(index).Contains(point)) return index;
+        }
+        return -1;
+    }
+
+    public int ProjectRangeAt(Point point)
+    {
+        for (var index = 0; index < ProjectRangeButtons.Count; index++)
+        {
+            if (ProjectRangeButtons[index].Contains(point)) return index;
+        }
+        return -1;
+    }
+
+    public int ProjectRowAt(Point point)
+    {
+        for (var index = 0; index < ProjectRows.Count; index++)
+        {
+            if (ProjectRows[index].Contains(point)) return index;
         }
         return -1;
     }

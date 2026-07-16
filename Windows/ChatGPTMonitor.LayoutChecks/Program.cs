@@ -63,7 +63,7 @@ foreach (var dpi in new[] { 96, 120, 144, 168, 192 })
         Check(headerItems[index - 1].Right <= headerItems[index].Left, $"{dpi} DPI 标题元素发生重叠");
     }
 
-    Check(metrics.NavigationTabs.Count == 3, $"{dpi} DPI 标签页数量错误");
+    Check(metrics.NavigationTabs.Count == 4, $"{dpi} DPI 标签页数量错误");
     Check(metrics.NavigationTabs.All(metrics.ExpandedClientBounds.Contains), $"{dpi} DPI 标签页越界");
     Check(metrics.StatisticsCards.Count == 4, $"{dpi} DPI 统计卡片数量错误");
     Check(metrics.StatisticsCards.All(metrics.PageSafeBounds.Contains), $"{dpi} DPI 统计卡片越过安全区");
@@ -72,10 +72,35 @@ foreach (var dpi in new[] { 96, 120, 144, 168, 192 })
     Check(metrics.ActivityMetricsBounds.Width >= metrics.ScaleLength(132), $"{dpi} DPI 活动指标宽度不足");
     Check(metrics.ExpandedSize.Height - metrics.StatisticsCards.Max(card => card.Bottom) >= metrics.ScaleLength(16), $"{dpi} DPI 统计卡片底部空间不足");
 
-    for (var page = 0; page < 3; page++)
+    Check(metrics.ProjectRangeButtons.Count == 3, $"{dpi} DPI 项目范围按钮数量错误");
+    Check(metrics.ProjectRangeButtons.All(metrics.PageSafeBounds.Contains), $"{dpi} DPI 项目范围按钮越界");
+    Check(metrics.ProjectSummaryCards.Count == 3, $"{dpi} DPI 项目摘要卡数量错误");
+    Check(metrics.ProjectSummaryCards.All(metrics.PageSafeBounds.Contains), $"{dpi} DPI 项目摘要卡越界");
+    Check(metrics.ProjectRows.Count == 6, $"{dpi} DPI 项目排行数量错误");
+    Check(metrics.ProjectRows.All(metrics.PageSafeBounds.Contains), $"{dpi} DPI 项目排行越界");
+
+    for (var page = 0; page < 4; page++)
     {
         var tab = metrics.NavigationTabs[page];
         Check(metrics.TabAt(new Point(tab.Left + tab.Width / 2, tab.Top + tab.Height / 2)) == page, $"{dpi} DPI 标签命中错误");
+    }
+    for (var range = 0; range < 3; range++)
+    {
+        var button = metrics.ProjectRangeButtons[range];
+        Check(
+            metrics.ProjectRangeAt(new Point(
+                button.Left + button.Width / 2,
+                button.Top + button.Height / 2)) == range,
+            $"{dpi} DPI 项目范围按钮命中错误");
+    }
+    for (var row = 0; row < 6; row++)
+    {
+        var bounds = metrics.ProjectRows[row];
+        Check(
+            metrics.ProjectRowAt(new Point(
+                bounds.Left + bounds.Width / 2,
+                bounds.Top + bounds.Height / 2)) == row,
+            $"{dpi} DPI 项目排行命中错误");
     }
     Check(metrics.ActivityCellAt(Point.Empty) == -1, $"{dpi} DPI 活动格外部命中错误");
     for (var index = 0; index < 60; index++)

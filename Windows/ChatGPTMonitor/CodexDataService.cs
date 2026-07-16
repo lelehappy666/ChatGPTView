@@ -73,9 +73,12 @@ internal sealed class CodexDataService : IDisposable
     private async Task RefreshOnceAsync()
     {
         if (_disposed) return;
-        var summaries = await Task.Run(ScanSessions);
+        var snapshot = await Task.Run(() =>
+        {
+            var summaries = ScanSessions();
+            return BuildSnapshot(summaries);
+        });
         if (_disposed) return;
-        var snapshot = BuildSnapshot(summaries);
         Volatile.Write(ref _latestSnapshot, snapshot);
         SnapshotChanged?.Invoke(snapshot);
         _completionCoordinator.Observe(snapshot.Sessions);
@@ -307,7 +310,10 @@ internal sealed class CodexDataService : IDisposable
             streaks.Current,
             streaks.Longest,
             projects,
-            newestSessions);
+            newestSessions)
+        {
+            ProjectAnalytics = ProjectAnalyticsBuilder.Build(summaries)
+        };
     }
 
     private static (int Current, int Longest) Streaks(HashSet<DateTime> dates)

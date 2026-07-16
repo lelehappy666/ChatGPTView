@@ -40,6 +40,46 @@ internal sealed record UsageDay(DateTime Date, long Tokens, int Sessions);
 
 internal sealed record WeeklyQuota(double? RemainingPercent, DateTime? ResetsAt);
 
+internal enum ProjectAnalyticsRange
+{
+    SevenDays,
+    ThirtyDays,
+    All
+}
+
+internal sealed record ProjectAnalyticsRow(
+    string Id,
+    string Name,
+    long Tokens,
+    int Sessions,
+    int ActiveDays,
+    double Share);
+
+internal sealed record ProjectAnalyticsPeriod(
+    int ActiveProjects,
+    long TotalTokens,
+    int TotalSessions,
+    IReadOnlyList<ProjectAnalyticsRow> Rows)
+{
+    public static ProjectAnalyticsPeriod Empty { get; } = new(
+        0,
+        0,
+        0,
+        Array.Empty<ProjectAnalyticsRow>());
+}
+
+internal sealed record ProjectAnalyticsSnapshot(
+    IReadOnlyDictionary<ProjectAnalyticsRange, ProjectAnalyticsPeriod> Periods)
+{
+    public static ProjectAnalyticsSnapshot Empty { get; } = new(
+        new Dictionary<ProjectAnalyticsRange, ProjectAnalyticsPeriod>());
+
+    public ProjectAnalyticsPeriod For(ProjectAnalyticsRange range) =>
+        Periods.TryGetValue(range, out var period)
+            ? period
+            : ProjectAnalyticsPeriod.Empty;
+}
+
 internal sealed record MonitorSnapshot(
     WeeklyQuota WeeklyQuota,
     IReadOnlyList<UsageDay> DailyActivity,
@@ -51,6 +91,9 @@ internal sealed record MonitorSnapshot(
     IReadOnlyList<ProjectActivity> Projects,
     IReadOnlyList<SessionActivity> Sessions)
 {
+    public ProjectAnalyticsSnapshot ProjectAnalytics { get; init; } =
+        ProjectAnalyticsSnapshot.Empty;
+
     public static MonitorSnapshot Empty { get; } = new(
         new WeeklyQuota(null, null),
         Array.Empty<UsageDay>(),

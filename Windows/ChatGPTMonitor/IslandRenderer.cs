@@ -7,6 +7,7 @@ internal enum IslandPage
 {
     Quota,
     Activity,
+    ProjectAnalytics,
     Statistics
 }
 
@@ -15,7 +16,9 @@ internal sealed record IslandRenderState(
     IslandMetrics Metrics,
     bool Expanded,
     IslandPage Page,
-    int HoveredActivityCell);
+    int HoveredActivityCell,
+    ProjectAnalyticsRange ProjectRange,
+    int HoveredProjectRow);
 
 internal sealed class IslandRenderer
 {
@@ -41,6 +44,9 @@ internal sealed class IslandRenderer
         {
             case IslandPage.Activity:
                 DrawActivityPage(graphics, state);
+                break;
+            case IslandPage.ProjectAnalytics:
+                DrawProjectAnalyticsPage(graphics, state);
                 break;
             case IslandPage.Statistics:
                 DrawStatisticsPage(graphics, state);
@@ -117,8 +123,8 @@ internal sealed class IslandRenderer
 
     private static void DrawNavigation(Graphics graphics, IslandRenderState state)
     {
-        var titles = new[] { "周额度", "每日活动", "统计总览" };
-        using var font = Theme.CreateChineseFont(state.Metrics.ScaleLength(13), FontStyle.Regular);
+        var titles = new[] { "周额度", "每日活动", "项目分析", "统计总览" };
+        using var font = Theme.CreateChineseFont(state.Metrics.ScaleLength(12), FontStyle.Regular);
         for (var index = 0; index < titles.Length; index++)
         {
             var selected = index == (int)state.Page;
@@ -281,6 +287,185 @@ internal sealed class IslandRenderer
             var valueBounds = new Rectangle(card.Left + padding, card.Top + state.Metrics.ScaleLength(31), card.Width - padding * 2, state.Metrics.ScaleLength(34));
             DrawText(graphics, labels[index], labelFont, Theme.Muted, labelBounds);
             DrawText(graphics, values[index], valueFont, Theme.Text, valueBounds);
+        }
+    }
+
+    private static void DrawProjectAnalyticsPage(Graphics graphics, IslandRenderState state)
+    {
+        var metrics = state.Metrics;
+        var period = state.Snapshot.ProjectAnalytics.For(state.ProjectRange);
+        var ranges = new[] { "7 天", "30 天", "全部" };
+
+        using var titleFont = Theme.CreateChineseFont(metrics.ScaleLength(11), FontStyle.Bold);
+        using var rangeFont = Theme.CreateChineseFont(metrics.ScaleLength(9), FontStyle.Bold);
+        using var metricLabelFont = Theme.CreateChineseFont(metrics.ScaleLength(8));
+        using var metricValueFont = Theme.CreateChineseFont(metrics.ScaleLength(13), FontStyle.Bold);
+        using var rowFont = Theme.CreateChineseFont(metrics.ScaleLength(8));
+        using var rowValueFont = Theme.CreateEnglishFont(metrics.ScaleLength(8), FontStyle.Bold);
+
+        DrawText(
+            graphics,
+            "按项目查看 Token 与会话",
+            titleFont,
+            Theme.Muted,
+            metrics.Scale(new Rectangle(18, 98, 240, 24)));
+
+        for (var index = 0; index < metrics.ProjectRangeButtons.Count; index++)
+        {
+            var bounds = metrics.ProjectRangeButtons[index];
+            var selected = index == (int)state.ProjectRange;
+            FillRounded(
+                graphics,
+                bounds,
+                selected ? Theme.Purple : Theme.Surface,
+                metrics.ScaleLength(7));
+            using var border = new Pen(
+                selected ? Color.FromArgb(210, Theme.Purple) : Theme.Border,
+                Math.Max(1, metrics.ScaleLength(1)));
+            using var path = Theme.RoundedRectangle(bounds, metrics.ScaleLength(7));
+            graphics.DrawPath(border, path);
+            DrawText(
+                graphics,
+                ranges[index],
+                rangeFont,
+                selected ? Theme.Text : Theme.Muted,
+                bounds,
+                TextFormatFlags.HorizontalCenter);
+        }
+
+        var summaryLabels = new[] { "活跃项目", "项目 Token", "项目会话" };
+        var summaryValues = new[]
+        {
+            period.ActiveProjects.ToString(),
+            FormatTokens(period.TotalTokens),
+            $"{period.TotalSessions} 次"
+        };
+        for (var index = 0; index < metrics.ProjectSummaryCards.Count; index++)
+        {
+            var card = metrics.ProjectSummaryCards[index];
+            FillRounded(graphics, card, Theme.Surface, metrics.ScaleLength(8));
+            using (var border = new Pen(Theme.Border, Math.Max(1, metrics.ScaleLength(1))))
+            using (var path = Theme.RoundedRectangle(card, metrics.ScaleLength(8)))
+            {
+                graphics.DrawPath(border, path);
+            }
+            var padding = metrics.ScaleLength(8);
+            DrawText(
+                graphics,
+                summaryLabels[index],
+                metricLabelFont,
+                Theme.Muted,
+                new Rectangle(
+                    card.Left + padding,
+                    card.Top + metrics.ScaleLength(2),
+                    card.Width - padding * 2,
+                    metrics.ScaleLength(14)));
+            DrawText(
+                graphics,
+                summaryValues[index],
+                metricValueFont,
+                Theme.Text,
+                new Rectangle(
+                    card.Left + padding,
+                    card.Top + metrics.ScaleLength(16),
+                    card.Width - padding * 2,
+                    metrics.ScaleLength(21)));
+        }
+
+        DrawText(
+            graphics,
+            "Token 排名",
+            titleFont,
+            Theme.Text,
+            metrics.Scale(new Rectangle(18, 170, 120, 18)));
+        DrawText(
+            graphics,
+            "悬停查看项目明细",
+            metricLabelFont,
+            Theme.Muted,
+            metrics.Scale(new Rectangle(270, 170, 142, 18)),
+            TextFormatFlags.Right);
+
+        if (period.Rows.Count == 0)
+        {
+            DrawText(
+                graphics,
+                "这个时间范围还没有项目数据",
+                titleFont,
+                Theme.Muted,
+                metrics.Scale(new Rectangle(18, 200, 394, 56)),
+                TextFormatFlags.HorizontalCenter);
+            return;
+        }
+
+        var maximumTokens = Math.Max(1L, period.Rows.Max(item => item.Tokens));
+        for (var index = 0;
+             index < period.Rows.Count && index < metrics.ProjectRows.Count;
+             index++)
+        {
+            var row = period.Rows[index];
+            var bounds = metrics.ProjectRows[index];
+            var highlighted = state.HoveredProjectRow == index;
+            FillRounded(
+                graphics,
+                bounds,
+                highlighted ? Theme.SurfaceRaised : Color.FromArgb(15, Theme.Surface),
+                metrics.ScaleLength(4));
+            using (var border = new Pen(
+                highlighted ? Color.FromArgb(210, Theme.Purple) : Color.FromArgb(115, Theme.Border),
+                Math.Max(1, metrics.ScaleLength(1))))
+            using (var path = Theme.RoundedRectangle(bounds, metrics.ScaleLength(4)))
+            {
+                graphics.DrawPath(border, path);
+            }
+
+            var nameBounds = new Rectangle(
+                bounds.Left + metrics.ScaleLength(6),
+                bounds.Top,
+                metrics.ScaleLength(110),
+                bounds.Height);
+            DrawText(
+                graphics,
+                row.Name,
+                rowFont,
+                Theme.Text,
+                nameBounds,
+                TextFormatFlags.EndEllipsis);
+
+            var track = new Rectangle(
+                bounds.Left + metrics.ScaleLength(122),
+                bounds.Top + Math.Max(0, (bounds.Height - metrics.ScaleLength(4)) / 2),
+                metrics.ScaleLength(136),
+                Math.Max(2, metrics.ScaleLength(4)));
+            FillRounded(graphics, track, Color.FromArgb(43, 46, 56), metrics.ScaleLength(2));
+            var fill = track;
+            fill.Width = Math.Max(
+                metrics.ScaleLength(4),
+                (int)Math.Round(track.Width * row.Tokens / (double)maximumTokens));
+            FillRounded(graphics, fill, Theme.Purple, metrics.ScaleLength(2));
+
+            DrawText(
+                graphics,
+                FormatTokens(row.Tokens),
+                rowValueFont,
+                Theme.Text,
+                new Rectangle(
+                    bounds.Left + metrics.ScaleLength(264),
+                    bounds.Top,
+                    metrics.ScaleLength(72),
+                    bounds.Height),
+                TextFormatFlags.Right);
+            DrawText(
+                graphics,
+                $"{row.Share * 100:0}%",
+                rowValueFont,
+                Theme.Purple,
+                new Rectangle(
+                    bounds.Left + metrics.ScaleLength(340),
+                    bounds.Top,
+                    metrics.ScaleLength(48),
+                    bounds.Height),
+                TextFormatFlags.Right);
         }
     }
 
