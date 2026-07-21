@@ -52,6 +52,7 @@ enum SessionScanner {
         var weeklyUsedPercent: Double?
         var weeklyLimitID: String?
         var weeklyResetsAt: Date?
+        var weeklyQuotaUpdatedAt: Date?
 
         try forEachSummaryLine(in: url) { line in
             guard isRelevant(line),
@@ -98,6 +99,7 @@ enum SessionScanner {
                     weeklyLimitID = payload.rateLimits?.limitID
                     weeklyResetsAt = weeklyWindow.resetsAt
                         .map(Date.init(timeIntervalSince1970:))
+                    weeklyQuotaUpdatedAt = envelope.timestamp.flatMap(parseTimestamp)
                 }
             default:
                 break
@@ -131,7 +133,8 @@ enum SessionScanner {
             updatedAt: updatedAt == .distantPast ? timestamp : updatedAt,
             weeklyUsedPercent: weeklyUsedPercent,
             weeklyLimitID: weeklyLimitID,
-            weeklyResetsAt: weeklyResetsAt
+            weeklyResetsAt: weeklyResetsAt,
+            weeklyQuotaUpdatedAt: weeklyQuotaUpdatedAt
         )
     }
 

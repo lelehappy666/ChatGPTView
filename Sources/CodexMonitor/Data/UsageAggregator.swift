@@ -21,7 +21,14 @@ enum UsageAggregator {
         let quotaSessions = sessions.filter { $0.weeklyUsedPercent != nil }
         let canonicalQuotaSessions = quotaSessions.filter { $0.weeklyLimitID == "codex" }
         let newestQuota = (canonicalQuotaSessions.isEmpty ? quotaSessions : canonicalQuotaSessions)
-            .max { $0.updatedAt < $1.updatedAt }
+            .max { lhs, rhs in
+                let lhsQuotaTime = lhs.weeklyQuotaUpdatedAt ?? lhs.updatedAt
+                let rhsQuotaTime = rhs.weeklyQuotaUpdatedAt ?? rhs.updatedAt
+                if lhsQuotaTime != rhsQuotaTime {
+                    return lhsQuotaTime < rhsQuotaTime
+                }
+                return lhs.updatedAt < rhs.updatedAt
+            }
         let remainingPercent = newestQuota?.weeklyUsedPercent.map {
             max(0, min(100, 100 - $0))
         }

@@ -154,6 +154,10 @@ final class JSONLDecoderTests: XCTestCase {
         XCTAssertEqual(summary?.weeklyUsedPercent, 31)
         XCTAssertEqual(summary?.weeklyLimitID, "codex")
         XCTAssertEqual(summary?.weeklyResetsAt, Date(timeIntervalSince1970: 1_784_510_985))
+        XCTAssertEqual(
+            summary?.weeklyQuotaUpdatedAt,
+            ISO8601DateFormatter().date(from: "2026-07-14T03:06:03Z")
+        )
     }
 
     private func fixtureURL(named name: String) -> URL {

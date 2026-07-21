@@ -77,6 +77,40 @@ final class UsageAggregatorTests: XCTestCase {
         XCTAssertEqual(snapshot.weeklyQuota.remainingPercent, 30)
     }
 
+    func testNewestQuotaEventWinsEvenWhenOlderSessionRemainsActive() {
+        let now = date(2026, 7, 21, 12)
+        let sessions = [
+            summary(
+                date: now,
+                project: "旧会话",
+                tokens: 100,
+                state: .running,
+                updatedAt: now,
+                weeklyUsed: 16,
+                weeklyLimitID: "codex",
+                weeklyQuotaUpdatedAt: now.addingTimeInterval(-120)
+            ),
+            summary(
+                date: now,
+                project: "新额度",
+                tokens: 100,
+                state: .running,
+                updatedAt: now.addingTimeInterval(-60),
+                weeklyUsed: 2,
+                weeklyLimitID: "codex",
+                weeklyQuotaUpdatedAt: now.addingTimeInterval(-30)
+            )
+        ]
+
+        let snapshot = UsageAggregator.makeSnapshot(
+            sessions: sessions,
+            now: now,
+            calendar: utcCalendar
+        )
+
+        XCTAssertEqual(snapshot.weeklyQuota.remainingPercent, 98)
+    }
+
     func testAllProjectStatesExpireAfterSixtySeconds() {
         let now = date(2026, 7, 14, 12)
         let staleProjects = [
@@ -258,6 +292,7 @@ final class UsageAggregatorTests: XCTestCase {
         updatedAt: Date,
         weeklyUsed: Double? = nil,
         weeklyLimitID: String? = nil,
+        weeklyQuotaUpdatedAt: Date? = nil,
         sessionID: String = "session",
         agentNickname: String? = nil,
         isTopLevel: Bool = true
@@ -274,7 +309,8 @@ final class UsageAggregatorTests: XCTestCase {
             updatedAt: updatedAt,
             weeklyUsedPercent: weeklyUsed,
             weeklyLimitID: weeklyLimitID,
-            weeklyResetsAt: nil
+            weeklyResetsAt: nil,
+            weeklyQuotaUpdatedAt: weeklyQuotaUpdatedAt
         )
     }
 }

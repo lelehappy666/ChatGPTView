@@ -165,6 +165,7 @@ struct SessionSummary: Equatable, Sendable {
     let weeklyUsedPercent: Double?
     let weeklyLimitID: String?
     let weeklyResetsAt: Date?
+    let weeklyQuotaUpdatedAt: Date?
 
     init(
         date: Date,
@@ -180,7 +181,8 @@ struct SessionSummary: Equatable, Sendable {
         updatedAt: Date,
         weeklyUsedPercent: Double?,
         weeklyLimitID: String? = nil,
-        weeklyResetsAt: Date?
+        weeklyResetsAt: Date?,
+        weeklyQuotaUpdatedAt: Date? = nil
     ) {
         self.date = date
         self.projectName = projectName
@@ -196,5 +198,6 @@ struct SessionSummary: Equatable, Sendable {
         self.weeklyUsedPercent = weeklyUsedPercent
         self.weeklyLimitID = weeklyLimitID
         self.weeklyResetsAt = weeklyResetsAt
+        self.weeklyQuotaUpdatedAt = weeklyQuotaUpdatedAt
     }
 }
