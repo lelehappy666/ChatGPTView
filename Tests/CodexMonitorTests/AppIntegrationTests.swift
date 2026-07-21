@@ -53,6 +53,24 @@ final class AppIntegrationTests: XCTestCase {
         )
     }
 
+    func testAppPeriodicallyRefreshesQuotaAndRefreshesAfterWake() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appendingPathComponent(
+                "Sources/CodexMonitor/App/AppDelegate.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(source.contains("Timer.publish(every: 30"))
+        XCTAssertTrue(source.contains("NSWorkspace.didWakeNotification"))
+        XCTAssertTrue(source.contains("periodicRefreshCancellable?.cancel()"))
+        XCTAssertTrue(source.contains("removeObserver(wakeObserver)"))
+    }
+
     func testGitHubPageAvoidsPerCellViewTreeAndOffscreenBlur() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

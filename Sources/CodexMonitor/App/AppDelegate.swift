@@ -7,6 +7,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var watcher: SessionDirectoryWatcher?
     private var menuBarController: MenuBarController?
     private var notchWindowController: NotchWindowController?
+    private var periodicRefreshCancellable: AnyCancellable?
+    private var wakeObserver: NSObjectProtocol?
     private let completionNotifier = ProjectCompletionNotifier()
     private var completionDetector = SessionCompletionDetector()
     private var snapshotCancellable: AnyCancellable?
@@ -41,6 +43,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         watcher.start()
         self.watcher = watcher
 
+        periodicRefreshCancellable = Timer.publish(every: 30, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak store] _ in
+                store?.requestRefresh()
+            }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak store] _ in
+            Task { @MainActor in
+                store?.requestRefresh()
+            }
+        }
+
         let menuBarController = MenuBarController(store: store)
         menuBarController.start()
         self.menuBarController = menuBarController
@@ -54,6 +71,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         pendingCompletionTasks.values.forEach { $0.cancel() }
+        periodicRefreshCancellable?.cancel()
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+        }
         watcher?.stop()
         notchWindowController?.stop()
     }
