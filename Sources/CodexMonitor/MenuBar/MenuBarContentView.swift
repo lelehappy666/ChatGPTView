@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MenuBarContentView: View {
     @ObservedObject var store: MonitorStore
+    @State private var now = Date.now
     @StateObject private var ticker = ProjectTickerState()
 
     private let timer = Timer.publish(every: 4, on: .main, in: .common).autoconnect()
@@ -34,6 +35,7 @@ struct MenuBarContentView: View {
         }
         .frame(height: 22)
         .onReceive(timer) { now in
+            self.now = now
             ticker.projects = store.snapshot.projects.visibleForMenu(at: now)
             withAnimation(.easeInOut(duration: 0.28)) {
                 ticker.advance()
@@ -45,7 +47,10 @@ struct MenuBarContentView: View {
     }
 
     private var weeklyText: String {
-        guard let remaining = store.snapshot.weeklyQuota.remainingPercent else {
+        guard let remaining = QuotaFreshnessPolicy.visibleRemainingPercent(
+            for: store.snapshot.weeklyQuota,
+            at: now
+        ) else {
             return "Week —"
         }
         return "Week \(Int(remaining.rounded()))%"

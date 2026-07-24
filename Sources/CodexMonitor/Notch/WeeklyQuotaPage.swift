@@ -1,11 +1,24 @@
+import Combine
 import SwiftUI
 
 struct WeeklyQuotaPage: View {
     let snapshot: MonitorSnapshot
 
+    @State private var now = Date.now
     @State private var hoveredRecentDay: UsageDay?
 
-    private var remaining: Double? { snapshot.weeklyQuota.remainingPercent }
+    private let freshnessTimer = Timer.publish(
+        every: 30,
+        on: .main,
+        in: .common
+    ).autoconnect()
+
+    private var remaining: Double? {
+        QuotaFreshnessPolicy.visibleRemainingPercent(
+            for: snapshot.weeklyQuota,
+            at: now
+        )
+    }
     private var used: Double { max(0, min(100, 100 - (remaining ?? 100))) }
     private var recentDays: [UsageDay] {
         Array(ActivityGrid.days(from: snapshot.dailyActivity).suffix(7))
@@ -25,9 +38,11 @@ struct WeeklyQuotaPage: View {
                         HStack(alignment: .lastTextBaseline, spacing: 3) {
                             Text(remaining.map { String(Int($0.rounded())) } ?? "—")
                                 .font(.system(size: 42, weight: .bold, design: .rounded))
-                            Text("%")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(.secondary)
+                            if remaining != nil {
+                                Text("%")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
@@ -115,10 +130,16 @@ struct WeeklyQuotaPage: View {
         }
         .padding(.horizontal, 22)
         .frame(width: NotchLayout.size.width, height: NotchLayout.pageContentHeight, alignment: .top)
+        .onReceive(freshnessTimer) { now in
+            self.now = now
+        }
     }
 
     private var syncText: String {
-        snapshot.lastUpdatedAt == nil ? "暂不可用" : "● 已同步"
+        if snapshot.weeklyQuota.remainingPercent == nil {
+            return "暂不可用"
+        }
+        return remaining == nil ? "等待 Codex 更新" : "● 已同步"
     }
 
     private var resetText: String {

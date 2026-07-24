@@ -71,6 +71,32 @@ final class AppIntegrationTests: XCTestCase {
         XCTAssertTrue(source.contains("removeObserver(wakeObserver)"))
     }
 
+    func testQuotaViewsHideStalePercentageAndKeepTimeMoving() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let menuSource = try String(
+            contentsOf: root.appendingPathComponent(
+                "Sources/CodexMonitor/MenuBar/MenuBarContentView.swift"
+            ),
+            encoding: .utf8
+        )
+        let pageSource = try String(
+            contentsOf: root.appendingPathComponent(
+                "Sources/CodexMonitor/Notch/WeeklyQuotaPage.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(menuSource.contains("QuotaFreshnessPolicy.visibleRemainingPercent"))
+        XCTAssertTrue(menuSource.contains("@State private var now = Date.now"))
+        XCTAssertTrue(pageSource.contains("QuotaFreshnessPolicy.visibleRemainingPercent"))
+        XCTAssertTrue(pageSource.contains("Timer.publish("))
+        XCTAssertTrue(pageSource.contains("every: 30"))
+        XCTAssertTrue(pageSource.contains("等待 Codex 更新"))
+    }
+
     func testGitHubPageAvoidsPerCellViewTreeAndOffscreenBlur() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
