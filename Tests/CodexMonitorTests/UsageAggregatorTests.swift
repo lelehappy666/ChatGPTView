@@ -109,6 +109,10 @@ final class UsageAggregatorTests: XCTestCase {
         )
 
         XCTAssertEqual(snapshot.weeklyQuota.remainingPercent, 98)
+        XCTAssertEqual(
+            snapshot.weeklyQuota.updatedAt,
+            now.addingTimeInterval(-30)
+        )
     }
 
     func testAllProjectStatesExpireAfterSixtySeconds() {

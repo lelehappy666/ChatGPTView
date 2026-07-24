@@ -97,7 +97,8 @@ enum UsageAggregator {
         return MonitorSnapshot(
             weeklyQuota: WeeklyQuota(
                 remainingPercent: remainingPercent,
-                resetsAt: newestQuota?.weeklyResetsAt
+                resetsAt: newestQuota?.weeklyResetsAt,
+                updatedAt: newestQuota?.weeklyQuotaUpdatedAt
             ),
             dailyActivity: dailyActivity,
             lifetimeTokens: sessions.reduce(0) { $0 + $1.totalTokens },

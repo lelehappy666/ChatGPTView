@@ -3,6 +3,38 @@ import Foundation
 struct WeeklyQuota: Equatable, Sendable {
     let remainingPercent: Double?
     let resetsAt: Date?
+    let updatedAt: Date?
+
+    init(
+        remainingPercent: Double?,
+        resetsAt: Date?,
+        updatedAt: Date? = nil
+    ) {
+        self.remainingPercent = remainingPercent
+        self.resetsAt = resetsAt
+        self.updatedAt = updatedAt
+    }
+}
+
+enum QuotaFreshnessPolicy {
+    static let freshDuration: TimeInterval = 300
+    static let futureTolerance: TimeInterval = 60
+
+    static func visibleRemainingPercent(
+        for quota: WeeklyQuota,
+        at now: Date = .now
+    ) -> Double? {
+        guard let remainingPercent = quota.remainingPercent,
+              let updatedAt = quota.updatedAt else {
+            return nil
+        }
+        let age = now.timeIntervalSince(updatedAt)
+        guard age >= -futureTolerance,
+              age <= freshDuration else {
+            return nil
+        }
+        return remainingPercent
+    }
 }
 
 struct UsageDay: Identifiable, Equatable, Sendable {
