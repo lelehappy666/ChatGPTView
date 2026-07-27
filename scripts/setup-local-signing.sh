@@ -41,13 +41,32 @@ cleanup() {
 }
 trap cleanup EXIT
 
-openssl req -new -newkey rsa:2048 -x509 -sha256 -days 3650 -nodes \
+openssl req -new -newkey rsa:2048 -x509 -sha256 -days 3651 -nodes \
+    -keyout "$TMP/ca-private-key.pem" \
+    -out "$TMP/ca-certificate.pem" \
+    -subj "/CN=$LOCAL_SIGNING_IDENTITY Ephemeral CA/O=Codex Monitor Local Development/" \
+    -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
+    -addext "keyUsage=critical,keyCertSign,cRLSign"
+
+openssl req -new -newkey rsa:2048 -sha256 -nodes \
     -keyout "$TMP/private-key.pem" \
-    -out "$TMP/certificate.pem" \
+    -out "$TMP/certificate.csr" \
     -subj "/CN=$LOCAL_SIGNING_IDENTITY/O=Codex Monitor Local Development/" \
     -addext "basicConstraints=critical,CA:FALSE" \
     -addext "keyUsage=critical,digitalSignature" \
     -addext "extendedKeyUsage=codeSigning"
+
+openssl x509 -req \
+    -in "$TMP/certificate.csr" \
+    -CA "$TMP/ca-certificate.pem" \
+    -CAkey "$TMP/ca-private-key.pem" \
+    -CAcreateserial \
+    -days 3650 \
+    -sha256 \
+    -copy_extensions copy \
+    -out "$TMP/certificate.pem"
+
+openssl verify -CAfile "$TMP/ca-certificate.pem" "$TMP/certificate.pem"
 
 CERTIFICATE_FINGERPRINT="$(
     openssl x509 -in "$TMP/certificate.pem" -noout -fingerprint -sha256 \
@@ -72,7 +91,7 @@ unset P12_PASSWORD
 IMPORTED=1
 
 security add-trusted-cert \
-    -r trustRoot \
+    -r trustAsRoot \
     -p codeSign \
     -k "$LOGIN_KEYCHAIN" \
     "$TMP/certificate.pem"

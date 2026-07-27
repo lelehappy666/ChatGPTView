@@ -10,6 +10,7 @@ MOCK_KEYCHAIN="$TEST_ROOT/keychains/login keychain-db"
 IDENTITY_MARKER="$TEST_ROOT/identity-created"
 ROLLBACK_MARKER="$TEST_ROOT/identity-rolled-back"
 GENERATED_CERTIFICATE="$TEST_ROOT/generated-certificate.pem"
+GENERATED_CA_CERTIFICATE="$TEST_ROOT/generated-ca-certificate.pem"
 GENERATED_IDENTITY="$TEST_ROOT/generated-identity.p12"
 GENERATED_IDENTITY_PASSWORD="$TEST_ROOT/generated-identity-password"
 CERTIFICATE_ONLY_IDENTITY="$TEST_ROOT/certificate-only/identity.p12"
@@ -21,7 +22,8 @@ INVALID_KEYCHAIN_OUTPUT="$TEST_ROOT/invalid-keychain-output.log"
 mkdir -p "$FAKE_BIN" "$TEST_ROOT/tmp" "${MOCK_KEYCHAIN%/*}"
 touch "$COMMAND_LOG"
 export COMMAND_LOG MOCK_KEYCHAIN IDENTITY_MARKER ROLLBACK_MARKER
-export GENERATED_CERTIFICATE GENERATED_IDENTITY IMPORT_VALIDATION_DIR
+export GENERATED_CERTIFICATE GENERATED_CA_CERTIFICATE GENERATED_IDENTITY
+export IMPORT_VALIDATION_DIR
 export GENERATED_IDENTITY_PASSWORD EXPECTED_FINGERPRINT_FILE
 
 cat >"$FAKE_BIN/security" <<'STUB'
@@ -123,19 +125,37 @@ case "${args[0]:-}" in
         ;;
     add-trusted-cert)
         reject_forbidden_access
-        [[ "${args[*]}" != *"trustAsRoot"* ]] ||
-            fail "自签名证书不得使用仅适用于非根证书的 trustAsRoot"
+        [[ "${args[*]}" != *"trustRoot"* ]] ||
+            fail "不得把临时签发 CA 持久化为 trustRoot"
         [[ ${#args[@]} -eq 8 && "${args[1]}" == "-r" &&
-            "${args[2]}" == "trustRoot" && "${args[3]}" == "-p" &&
+            "${args[2]}" == "trustAsRoot" && "${args[3]}" == "-p" &&
             "${args[4]}" == "codeSign" && "${args[5]}" == "-k" &&
             "${args[6]}" == "$MOCK_KEYCHAIN" && "${args[7]}" == */certificate.pem ]] ||
-            fail "必须仅为登录钥匙串添加 trustRoot 代码签名策略信任"
+            fail "必须仅把非根叶子证书设为 trustAsRoot 代码签名信任"
         certificate_constraints="$(
             openssl x509 -in "${args[7]}" -noout -ext basicConstraints
         )"
         grep -Fq 'CA:FALSE' <<<"$certificate_constraints" ||
-            fail "trustRoot 证书必须明确为 CA:FALSE"
+            fail "持久身份叶子证书必须明确为 CA:FALSE"
+        certificate_subject="$(openssl x509 -in "${args[7]}" -noout -subject)"
+        certificate_issuer="$(openssl x509 -in "${args[7]}" -noout -issuer)"
+        [[ "${certificate_subject#subject=}" != "${certificate_issuer#issuer=}" ]] ||
+            fail "trustAsRoot 叶子证书不得自签名"
+        ca_certificate="${args[7]%/*}/ca-certificate.pem"
+        [[ -f "$ca_certificate" ]] ||
+            fail "缺少仅用于临时签发的 CA 证书"
+        openssl verify -CAfile "$ca_certificate" "${args[7]}" >/dev/null ||
+            fail "叶子证书不是由本次临时 CA 签发"
+        ca_constraints="$(
+            openssl x509 -in "$ca_certificate" -noout -ext basicConstraints
+        )"
+        grep -Fq 'CA:TRUE' <<<"$ca_constraints" ||
+            fail "临时签发证书必须具备 CA 能力"
+        ca_key_usage="$(openssl x509 -in "$ca_certificate" -noout -ext keyUsage)"
+        grep -Fq 'Certificate Sign' <<<"$ca_key_usage" ||
+            fail "临时 CA 必须仅用于签发叶子证书"
         cp "${args[7]}" "$GENERATED_CERTIFICATE"
+        cp "$ca_certificate" "$GENERATED_CA_CERTIFICATE"
         openssl x509 -in "${args[7]}" -noout -fingerprint -sha256 \
             | sed -E 's/.*=//; s/://g' >"$EXPECTED_FINGERPRINT_FILE"
         record
@@ -175,7 +195,8 @@ run_fake_import() {
 reset_case() {
     : >"$COMMAND_LOG"
     rm -f "$IDENTITY_MARKER" "$ROLLBACK_MARKER" "$GENERATED_CERTIFICATE" \
-        "$GENERATED_IDENTITY" "$GENERATED_IDENTITY_PASSWORD" \
+        "$GENERATED_CA_CERTIFICATE" "$GENERATED_IDENTITY" \
+        "$GENERATED_IDENTITY_PASSWORD" \
         "$EXPECTED_FINGERPRINT_FILE" "$ROLLBACK_OUTPUT" \
         "$CERTIFICATE_ONLY_OUTPUT" "$INVALID_KEYCHAIN_OUTPUT"
     rm -rf "$IMPORT_VALIDATION_DIR"
@@ -192,9 +213,7 @@ assert_command_order() {
 }
 
 assert_temporary_material_cleaned() {
-    if find "$TEST_ROOT/tmp" -type f \
-        \( -name 'private-key.pem' -o -name 'certificate.pem' -o -name 'identity.p12' \) \
-        | grep -q .; then
+    if find "$TEST_ROOT/tmp" -type f | grep -q .; then
         echo "临时签名材料未清理" >&2
         exit 1
     fi
@@ -205,13 +224,18 @@ run_setup
 assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,find-identity'
 [[ -f "$IDENTITY_MARKER" ]]
 [[ ! -e "$ROLLBACK_MARKER" ]]
-[[ -f "$GENERATED_CERTIFICATE" && -f "$GENERATED_IDENTITY" ]]
+[[ -f "$GENERATED_CERTIFICATE" && -f "$GENERATED_CA_CERTIFICATE" ]]
+[[ -f "$GENERATED_IDENTITY" ]]
 [[ -s "$GENERATED_IDENTITY_PASSWORD" ]]
 generated_identity_password="$(<"$GENERATED_IDENTITY_PASSWORD")"
 openssl pkcs12 -in "$GENERATED_IDENTITY" \
     -passin "pass:$generated_identity_password" -noout -nokeys
 openssl pkcs12 -in "$GENERATED_IDENTITY" \
     -passin "pass:$generated_identity_password" -noout -nocerts
+openssl verify -CAfile "$GENERATED_CA_CERTIFICATE" "$GENERATED_CERTIFICATE"
+leaf_subject="$(openssl x509 -in "$GENERATED_CERTIFICATE" -noout -subject)"
+leaf_issuer="$(openssl x509 -in "$GENERATED_CERTIFICATE" -noout -issuer)"
+[[ "${leaf_subject#subject=}" != "${leaf_issuer#issuer=}" ]]
 basic_constraints="$(
     openssl x509 -in "$GENERATED_CERTIFICATE" -noout -ext basicConstraints
 )"
@@ -312,4 +336,5 @@ assert_temporary_material_cleaned
 reset_case
 MOCK_IDENTITY_EXISTS=1 run_setup
 assert_command_order 'find-identity'
-[[ ! -e "$GENERATED_CERTIFICATE" && ! -e "$GENERATED_IDENTITY" ]]
+[[ ! -e "$GENERATED_CERTIFICATE" && ! -e "$GENERATED_CA_CERTIFICATE" ]]
+[[ ! -e "$GENERATED_IDENTITY" ]]
