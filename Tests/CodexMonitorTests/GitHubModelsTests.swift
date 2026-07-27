@@ -174,4 +174,19 @@ final class GitHubModelsTests: XCTestCase {
             ["5月", "6月", "7月"]
         )
     }
+
+    func testReferenceRepositoryRowsUseGitHubMark() {
+        XCTAssertEqual(
+            RepositoryLeadingIcon.make(density: .reference),
+            .github
+        )
+        XCTAssertEqual(
+            RepositoryLeadingIcon.make(density: .compact),
+            .repository
+        )
+        XCTAssertEqual(
+            RepositoryLeadingIcon.make(density: .standard),
+            .repository
+        )
+    }
 }

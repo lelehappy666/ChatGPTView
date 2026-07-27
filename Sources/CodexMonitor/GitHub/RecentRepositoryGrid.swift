@@ -7,6 +7,15 @@ enum RepositoryGridDensity: Equatable {
     case reference
 }
 
+enum RepositoryLeadingIcon: Equatable {
+    case repository
+    case github
+
+    static func make(density: RepositoryGridDensity) -> Self {
+        density == .reference ? .github : .repository
+    }
+}
+
 struct RepositoryGridMetrics: Equatable {
     let columnCount: Int
     let rowCount: Int
@@ -108,9 +117,7 @@ private struct RepositoryLinkCard: View {
             NSWorkspace.shared.open(repository.url)
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: density == .reference ? "cat.fill" : "book.closed")
-                    .font(.system(size: iconSize))
-                    .foregroundStyle(.secondary)
+                leadingIcon
 
                 VStack(alignment: .leading, spacing: 0) {
                     Text(repository.name)
@@ -148,6 +155,27 @@ private struct RepositoryLinkCard: View {
         }
         .buttonStyle(.plain)
         .help("打开 \(repository.name)")
+    }
+
+    @ViewBuilder
+    private var leadingIcon: some View {
+        switch RepositoryLeadingIcon.make(density: density) {
+        case .repository:
+            Image(systemName: "book.closed")
+                .font(.system(size: iconSize))
+                .foregroundStyle(.secondary)
+                .frame(width: 14, height: 14)
+        case .github:
+            ZStack {
+                Circle()
+                    .fill(Color.white)
+                Image(systemName: "cat.fill")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(Color.black)
+            }
+            .frame(width: 14, height: 14)
+            .accessibilityHidden(true)
+        }
     }
 
     private var relativeTime: String {
