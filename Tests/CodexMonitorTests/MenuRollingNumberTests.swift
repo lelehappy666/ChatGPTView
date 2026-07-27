@@ -19,6 +19,17 @@ final class MenuRollingNumberTests: XCTestCase {
         XCTAssertEqual(context.cycle, 2)
     }
 
+    @MainActor
+    func testEndingPresentationMarksAnimationContextInactive() {
+        let context = MenuNumberAnimationContext()
+
+        context.beginPresentation()
+        XCTAssertTrue(context.isPresented)
+
+        context.endPresentation()
+        XCTAssertFalse(context.isPresented)
+    }
+
     func testAnimatedPresentationStartsAtZeroValue() {
         XCTAssertEqual(
             MenuNumberAnimationPlan.initialValue(

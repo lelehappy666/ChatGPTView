@@ -67,6 +67,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate, AppSurfaceControllin
 
     func stop() {
         cancelHoverTasks()
+        numberAnimationContext.endPresentation()
         popover.performClose(nil)
         hostingView?.removeFromSuperview()
         hostingView = nil
@@ -111,6 +112,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate, AppSurfaceControllin
         hoverCloseTask?.cancel()
         hoverCloseTask = nil
         hoverCoordinator.popoverDidClose()
+        numberAnimationContext.endPresentation()
         updateButtonAccessibility()
     }
 

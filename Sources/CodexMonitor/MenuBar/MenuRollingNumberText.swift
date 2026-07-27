@@ -10,9 +10,15 @@ enum MenuAnimationTiming {
 @MainActor
 final class MenuNumberAnimationContext: ObservableObject {
     @Published private(set) var cycle = 0
+    @Published private(set) var isPresented = false
 
     func beginPresentation() {
+        isPresented = true
         cycle &+= 1
+    }
+
+    func endPresentation() {
+        isPresented = false
     }
 }
 
@@ -104,9 +110,22 @@ struct MenuRollingNumberText: View {
                     .accessibilityLabel("暂无数据")
             }
         }
-        .onAppear(perform: replayFromZero)
+        .onAppear {
+            if animationContext.isPresented {
+                replayFromZero()
+            } else {
+                stopAndReset()
+            }
+        }
         .onChange(of: animationContext.cycle) {
-            replayFromZero()
+            if animationContext.isPresented {
+                replayFromZero()
+            }
+        }
+        .onChange(of: animationContext.isPresented) {
+            if !animationContext.isPresented {
+                stopAndReset()
+            }
         }
         .onChange(of: value) {
             animateToTarget()
@@ -169,6 +188,12 @@ struct MenuRollingNumberText: View {
         ) {
             displayedValue = value
         }
+    }
+
+    private func stopAndReset() {
+        animationTask?.cancel()
+        animationTask = nil
+        setWithoutAnimation(0)
     }
 
     private func setWithoutAnimation(_ value: Double) {
