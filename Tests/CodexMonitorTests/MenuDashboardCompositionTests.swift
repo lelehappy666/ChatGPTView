@@ -28,4 +28,22 @@ final class MenuDashboardCompositionTests: XCTestCase {
 
         XCTAssertNil(activity)
     }
+
+    func testProjectAnalyticsBarPlanPreservesRankingAndNormalizesHeightsByMaximumTokens() {
+        let rows = [
+            ProjectAnalyticsRow(
+                id: "a", name: "A", tokens: 100,
+                sessions: 2, activeDays: 1, share: 2.0 / 3.0
+            ),
+            ProjectAnalyticsRow(
+                id: "b", name: "B", tokens: 50,
+                sessions: 1, activeDays: 1, share: 1.0 / 3.0
+            )
+        ]
+
+        let bars = ProjectAnalyticsBarPlan.make(rows: rows)
+
+        XCTAssertEqual(bars.map(\.id), ["a", "b"])
+        XCTAssertEqual(bars.map(\.relativeHeight), [1.0, 0.5])
+    }
 }

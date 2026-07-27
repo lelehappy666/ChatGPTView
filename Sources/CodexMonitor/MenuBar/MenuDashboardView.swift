@@ -117,7 +117,7 @@ struct MenuDashboardView: View {
         case .dailyActivity:
             MenuDailyActivitySection(snapshot: store.snapshot)
         case .projectAnalytics:
-            ProjectAnalyticsPage(
+            MenuProjectAnalyticsSection(
                 analytics: store.snapshot.projectAnalytics,
                 reduceMotion: reduceMotion
             )
