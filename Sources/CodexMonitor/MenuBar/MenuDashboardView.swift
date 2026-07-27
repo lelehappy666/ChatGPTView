@@ -18,6 +18,24 @@ enum MenuDashboardComposition {
     ]
 }
 
+enum MenuPopoverHoverAction: Equatable {
+    case none
+    case cancelClose
+    case scheduleClose
+}
+
+struct MenuPopoverHoverState {
+    private(set) var hasEntered = false
+
+    mutating func update(isInside: Bool) -> MenuPopoverHoverAction {
+        if isInside {
+            hasEntered = true
+            return .cancelClose
+        }
+        return hasEntered ? .scheduleClose : .none
+    }
+}
+
 struct MenuDashboardView: View {
     @ObservedObject var store: MonitorStore
     let onClose: () -> Void
@@ -25,6 +43,8 @@ struct MenuDashboardView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var githubStore = GitHubActivityStore()
+    @State private var popoverHoverState = MenuPopoverHoverState()
+    @State private var autoCloseTask: Task<Void, Never>?
 
     var body: some View {
         GeometryReader { proxy in
@@ -45,11 +65,17 @@ struct MenuDashboardView: View {
         .foregroundStyle(Color.white)
         .environment(\.colorScheme, .dark)
         .background(Color.black)
+        .contentShape(Rectangle())
+        .onHover(perform: handlePopoverHover)
         .onAppear {
             githubStore.primeFromCache()
         }
         .task {
             await githubStore.loadIfNeeded()
+        }
+        .onDisappear {
+            autoCloseTask?.cancel()
+            autoCloseTask = nil
         }
     }
 
@@ -181,6 +207,23 @@ struct MenuDashboardView: View {
             return "刚刚更新"
         case .failed:
             return "刷新失败，显示最近数据"
+        }
+    }
+
+    private func handlePopoverHover(_ isInside: Bool) {
+        switch popoverHoverState.update(isInside: isInside) {
+        case .none:
+            break
+        case .cancelClose:
+            autoCloseTask?.cancel()
+            autoCloseTask = nil
+        case .scheduleClose:
+            autoCloseTask?.cancel()
+            autoCloseTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                guard !Task.isCancelled else { return }
+                onClose()
+            }
         }
     }
 }
