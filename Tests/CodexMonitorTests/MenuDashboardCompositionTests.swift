@@ -46,4 +46,50 @@ final class MenuDashboardCompositionTests: XCTestCase {
         XCTAssertEqual(bars.map(\.id), ["a", "b"])
         XCTAssertEqual(bars.map(\.relativeHeight), [1.0, 0.5])
     }
+
+    func testGitHubMenuPresentationMapsUnboundStateToAuthorization() {
+        XCTAssertEqual(
+            GitHubMenuPresentation.make(state: .unbound(message: nil)),
+            .authorization(message: nil)
+        )
+    }
+
+    func testGitHubMenuPresentationShowsCachedContentWhileLoading() {
+        let snapshot = makeGitHubSnapshot()
+
+        XCTAssertEqual(
+            GitHubMenuPresentation.make(state: .loading(cached: snapshot)),
+            .content(snapshot: snapshot, statusMessage: "正在刷新")
+        )
+    }
+
+    func testGitHubMenuPresentationShowsLoadedContentWithoutStatusMessage() {
+        let snapshot = makeGitHubSnapshot()
+
+        XCTAssertEqual(
+            GitHubMenuPresentation.make(state: .loaded(snapshot)),
+            .content(snapshot: snapshot, statusMessage: nil)
+        )
+    }
+
+    func testGitHubMenuPresentationRetainsCachedContentAfterRefreshFailure() {
+        let snapshot = makeGitHubSnapshot()
+
+        XCTAssertEqual(
+            GitHubMenuPresentation.make(
+                state: .failed(message: "网络错误", cached: snapshot)
+            ),
+            .content(snapshot: snapshot, statusMessage: "网络错误")
+        )
+    }
+
+    private func makeGitHubSnapshot() -> GitHubActivitySnapshot {
+        GitHubActivitySnapshot(
+            username: "octocat",
+            totalContributions: 42,
+            contributionDays: [],
+            repositories: [],
+            fetchedAt: Date(timeIntervalSince1970: 0)
+        )
+    }
 }

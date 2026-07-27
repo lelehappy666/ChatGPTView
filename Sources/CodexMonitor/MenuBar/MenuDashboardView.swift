@@ -124,7 +124,7 @@ struct MenuDashboardView: View {
         case .statistics:
             MenuStatisticsSection(snapshot: store.snapshot)
         case .github:
-            GitHubActivityPage(store: githubStore)
+            MenuGitHubActivitySection(store: githubStore)
         }
     }
 

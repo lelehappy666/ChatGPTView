@@ -258,7 +258,7 @@ private struct GitHubMarkView: View {
     }
 }
 
-private struct GitHubAuthorizationCard: View {
+struct GitHubAuthorizationCard: View {
     let message: String?
     let onBind: (String) async -> Void
 
