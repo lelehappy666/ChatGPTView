@@ -9,13 +9,13 @@ enum MenuDashboardSection: Hashable {
 }
 
 enum MenuDashboardComposition {
-    static let sections: [MenuDashboardSection] = [
-        .weeklyQuota,
-        .dailyActivity,
-        .projectAnalytics,
-        .statistics,
-        .github
+    static let rows: [[MenuDashboardSection]] = [
+        [.weeklyQuota, .dailyActivity],
+        [.projectAnalytics],
+        [.statistics, .github]
     ]
+
+    static let sections = rows.flatMap { $0 }
 }
 
 struct MenuDashboardView: View {
@@ -29,17 +29,44 @@ struct MenuDashboardView: View {
     var body: some View {
         VStack(spacing: 0) {
             dashboardHeader
+                .frame(height: 44)
 
-            ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(spacing: 12) {
-                    ForEach(MenuDashboardComposition.sections, id: \.self) { section in
-                        sectionView(for: section)
+            GeometryReader { proxy in
+                let horizontalPadding: CGFloat = 12
+                let verticalPadding: CGFloat = 12
+                let innerWidth = max(0, proxy.size.width - horizontalPadding * 2)
+                let plan = MenuDashboardLayoutPlan.make(
+                    contentHeight: max(0, proxy.size.height - verticalPadding * 2)
+                )
+
+                VStack(spacing: plan.rowSpacing) {
+                    HStack(spacing: plan.rowSpacing) {
+                        sectionView(for: .weeklyQuota)
+                        sectionView(for: .dailyActivity)
                     }
+                    .frame(height: plan.firstRowHeight)
+
+                    sectionView(for: .projectAnalytics)
+                        .frame(height: plan.projectRowHeight)
+
+                    HStack(spacing: plan.rowSpacing) {
+                        sectionView(for: .statistics)
+                            .frame(
+                                width: max(
+                                    0,
+                                    (innerWidth - plan.rowSpacing) * 0.36
+                                )
+                            )
+                        sectionView(for: .github)
+                    }
+                    .frame(height: plan.thirdRowHeight)
                 }
-                .padding(20)
+                .padding(.horizontal, horizontalPadding)
+                .padding(.vertical, verticalPadding)
             }
 
             dashboardFooter
+                .frame(height: 28)
         }
         .foregroundStyle(Color.white)
         .environment(\.colorScheme, .dark)
@@ -83,8 +110,7 @@ struct MenuDashboardView: View {
             .background(Color.white.opacity(0.075), in: Circle())
             .help("收起面板")
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 14)
         .background(Color.white.opacity(0.035))
     }
 
@@ -100,8 +126,7 @@ struct MenuDashboardView: View {
         }
         .font(.system(size: 10, weight: .medium))
         .buttonStyle(.plain)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
         .background(Color.white.opacity(0.035))
     }
 

@@ -10,6 +10,17 @@ final class MenuDashboardCompositionTests: XCTestCase {
         XCTAssertEqual(Set(MenuDashboardComposition.sections).count, 5)
     }
 
+    func testCompactDashboardUsesThreeRows() {
+        XCTAssertEqual(
+            MenuDashboardComposition.rows,
+            [
+                [.weeklyQuota, .dailyActivity],
+                [.projectAnalytics],
+                [.statistics, .github]
+            ]
+        )
+    }
+
     func testTodayActivityIsEmptyWhenOnlyPreviousDaysHaveUsage() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
