@@ -29,7 +29,7 @@ case "$1" in
         ;;
     -d)
         [[ "${MOCK_CODESIGN_FAILURE:-}" != "requirement" ]] || exit 43
-        printf '%s\n' "${MOCK_REQUIREMENT:?请设置模拟指定要求}" >&2
+        printf '%s\n' "${MOCK_REQUIREMENT-}" >&2
         ;;
     *)
         echo "未预期的 codesign 调用：$*" >&2
@@ -79,7 +79,7 @@ assert_log_equals() {
 }
 
 : >"$COMMAND_LOG"
-run_sign '# designated => identifier "com.dafeng.codexmonitor" and anchor trusted'
+run_sign $'Executable=/tmp/Codex Monitor.app/Contents/MacOS/CodexMonitor\n# designated => identifier "com.dafeng.codexmonitor" and anchor trusted'
 assert_log_equals $'codesign <--force> <--deep> <--options> <runtime> <--timestamp=none> <--sign> <Stable Test Identity> <'"$APP"$'>\ncodesign <--verify> <--deep> <--strict> <--verbose=2> <'"$APP"$'>\ncodesign <-d> <-r-> <'"$APP"$'>'
 
 : >"$COMMAND_LOG"
@@ -114,6 +114,45 @@ fi
     echo "签名失败后不应继续校验" >&2
     exit 1
 }
+
+: >"$COMMAND_LOG"
+set +e
+PATH="$FAKE_BIN:$PATH" CODE_SIGN_IDENTITY="Stable Test Identity" \
+    MOCK_CODESIGN_FAILURE=requirement \
+    /bin/bash "$ROOT/scripts/sign-app.sh" "$APP" \
+    >"$TEST_ROOT/requirement-failure-output" 2>&1
+requirement_failure_status=$?
+set -e
+[[ "$requirement_failure_status" == "43" ]] || {
+    echo "读取指定要求失败应保留 codesign 的退出码 43，实际为 $requirement_failure_status" >&2
+    exit 1
+}
+[[ "$(wc -l <"$COMMAND_LOG" | tr -d ' ')" == "3" ]] || {
+    echo "读取指定要求失败时应在第三次 codesign 调用停止" >&2
+    exit 1
+}
+
+: >"$COMMAND_LOG"
+if PATH="$FAKE_BIN:$PATH" CODE_SIGN_IDENTITY="Stable Test Identity" \
+    MOCK_REQUIREMENT="" \
+    /bin/bash "$ROOT/scripts/sign-app.sh" "$APP" \
+    >"$TEST_ROOT/empty-requirement-output" 2>&1; then
+    echo "空指定要求输出不应通过" >&2
+    exit 1
+fi
+grep -Fq '签名失败：未读取到有效的应用指定要求' \
+    "$TEST_ROOT/empty-requirement-output"
+
+: >"$COMMAND_LOG"
+if PATH="$FAKE_BIN:$PATH" CODE_SIGN_IDENTITY="Stable Test Identity" \
+    MOCK_REQUIREMENT='warning: unable to parse requirement metadata' \
+    /bin/bash "$ROOT/scripts/sign-app.sh" "$APP" \
+    >"$TEST_ROOT/invalid-requirement-output" 2>&1; then
+    echo "不包含 designated requirement 的输出不应通过" >&2
+    exit 1
+fi
+grep -Fq '签名失败：未读取到有效的应用指定要求' \
+    "$TEST_ROOT/invalid-requirement-output"
 
 PACKAGE_ROOT="$TEST_ROOT/package-cwd"
 mkdir -p "$PACKAGE_ROOT/Resources" "$TEST_ROOT/release-bin"
