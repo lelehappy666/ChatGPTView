@@ -147,6 +147,6 @@ private struct OpenAIKnotMark: View {
                     .rotationEffect(.degrees(angle))
             }
         }
-        .accessibilityLabel("ChatGPT")
+        .accessibilityHidden(true)
     }
 }

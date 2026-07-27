@@ -16,6 +16,12 @@ final class MenuPopoverLayoutTests: XCTestCase {
         XCTAssertEqual(size, CGSize(width: 676, height: 736))
     }
 
+    func testZeroVisibleFrameDoesNotProduceNegativeContentSize() {
+        let size = MenuPopoverLayout.contentSize(for: .zero)
+
+        XCTAssertEqual(size, .zero)
+    }
+
     func testOpeningHiddenPopoverRequestsRefresh() {
         XCTAssertTrue(MenuPopoverOpenPolicy.shouldRefresh(isShown: false))
         XCTAssertFalse(MenuPopoverOpenPolicy.shouldRefresh(isShown: true))

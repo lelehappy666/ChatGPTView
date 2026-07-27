@@ -29,6 +29,89 @@ final class MenuDashboardCompositionTests: XCTestCase {
         XCTAssertNil(activity)
     }
 
+    func testWeeklyQuotaPresentationShowsFreshQuota() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let presentation = MenuWeeklyQuotaPresentation.make(
+            quota: WeeklyQuota(
+                remainingPercent: 34,
+                resetsAt: now.addingTimeInterval(2 * 86_400 + 3 * 3_600),
+                updatedAt: now.addingTimeInterval(-60)
+            ),
+            now: now
+        )
+
+        XCTAssertEqual(presentation.remainingText, "34")
+        XCTAssertTrue(presentation.showsRemainingUnit)
+        XCTAssertEqual(presentation.usedText, "66%")
+        XCTAssertEqual(presentation.usedFraction, 0.66)
+        XCTAssertEqual(presentation.resetText, "2 天 3 小时")
+    }
+
+    func testWeeklyQuotaPresentationHidesExpiredQuotaAndOldResetCountdown() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let presentation = MenuWeeklyQuotaPresentation.make(
+            quota: WeeklyQuota(
+                remainingPercent: 34,
+                resetsAt: now.addingTimeInterval(2 * 86_400),
+                updatedAt: now.addingTimeInterval(
+                    -QuotaFreshnessPolicy.freshDuration - 1
+                )
+            ),
+            now: now
+        )
+
+        XCTAssertEqual(presentation.remainingText, "—")
+        XCTAssertFalse(presentation.showsRemainingUnit)
+        XCTAssertEqual(presentation.usedText, "—")
+        XCTAssertNil(presentation.usedFraction)
+        XCTAssertEqual(presentation.resetText, "—")
+    }
+
+    func testWeeklyQuotaPresentationHidesMissingQuotaAndResetCountdown() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let presentation = MenuWeeklyQuotaPresentation.make(
+            quota: WeeklyQuota(
+                remainingPercent: nil,
+                resetsAt: now.addingTimeInterval(2 * 86_400),
+                updatedAt: now
+            ),
+            now: now
+        )
+
+        XCTAssertEqual(presentation.remainingText, "—")
+        XCTAssertFalse(presentation.showsRemainingUnit)
+        XCTAssertEqual(presentation.usedText, "—")
+        XCTAssertNil(presentation.usedFraction)
+        XCTAssertEqual(presentation.resetText, "—")
+    }
+
+    func testLocalUsagePresentationShowsEmptyStateWithoutScannedData() {
+        XCTAssertEqual(
+            MenuLocalUsagePresentation.make(snapshot: .empty),
+            .empty
+        )
+    }
+
+    func testLocalUsagePresentationKeepsMetricsForRealZeroUsage() {
+        let snapshot = MonitorSnapshot(
+            weeklyQuota: WeeklyQuota(remainingPercent: nil, resetsAt: nil),
+            dailyActivity: [],
+            lifetimeTokens: 0,
+            peakTokens: 0,
+            longestTaskDuration: 0,
+            currentStreakDays: 0,
+            longestStreakDays: 0,
+            projects: [],
+            sessions: [],
+            lastUpdatedAt: Date(timeIntervalSince1970: 1_000_000)
+        )
+
+        XCTAssertEqual(
+            MenuLocalUsagePresentation.make(snapshot: snapshot),
+            .metrics
+        )
+    }
+
     func testProjectAnalyticsBarPlanPreservesRankingAndNormalizesHeightsByMaximumTokens() {
         let rows = [
             ProjectAnalyticsRow(

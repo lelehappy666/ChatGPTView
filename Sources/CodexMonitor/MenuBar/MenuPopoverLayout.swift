@@ -6,8 +6,14 @@ enum MenuPopoverLayout {
 
     static func contentSize(for visibleFrame: CGRect) -> CGSize {
         CGSize(
-            width: min(targetSize.width, visibleFrame.width - screenInset),
-            height: min(targetSize.height, visibleFrame.height - screenInset)
+            width: max(
+                0,
+                min(targetSize.width, visibleFrame.width - screenInset)
+            ),
+            height: max(
+                0,
+                min(targetSize.height, visibleFrame.height - screenInset)
+            )
         )
     }
 }

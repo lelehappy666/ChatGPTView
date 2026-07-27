@@ -1,6 +1,48 @@
 import Combine
 import SwiftUI
 
+struct MenuWeeklyQuotaPresentation: Equatable {
+    let remainingText: String
+    let showsRemainingUnit: Bool
+    let usedText: String
+    let usedFraction: Double?
+    let resetText: String
+
+    static func make(quota: WeeklyQuota, now: Date) -> Self {
+        guard let remaining = QuotaFreshnessPolicy.visibleRemainingPercent(
+            for: quota,
+            at: now
+        ) else {
+            return Self(
+                remainingText: "—",
+                showsRemainingUnit: false,
+                usedText: "—",
+                usedFraction: nil,
+                resetText: "—"
+            )
+        }
+
+        let usedPercent = max(0, min(100, 100 - remaining))
+        let resetText: String
+        if let resetDate = quota.resetsAt {
+            let seconds = max(0, Int(resetDate.timeIntervalSince(now)))
+            let days = seconds / 86_400
+            let hours = (seconds % 86_400) / 3_600
+            resetText = "\(days) 天 \(hours) 小时"
+        } else {
+            resetText = "—"
+        }
+
+        return Self(
+            remainingText: String(Int(remaining.rounded())),
+            showsRemainingUnit: true,
+            usedText: "\(Int(usedPercent.rounded()))%",
+            usedFraction: usedPercent / 100,
+            resetText: resetText
+        )
+    }
+}
+
 struct MenuWeeklyQuotaSection: View {
     let snapshot: MonitorSnapshot
     let refreshState: RefreshState
@@ -14,23 +56,19 @@ struct MenuWeeklyQuotaSection: View {
         in: .common
     ).autoconnect()
 
-    private var remaining: Double? {
-        QuotaFreshnessPolicy.visibleRemainingPercent(
-            for: snapshot.weeklyQuota,
-            at: now
+    private var quotaPresentation: MenuWeeklyQuotaPresentation {
+        .make(
+            quota: snapshot.weeklyQuota,
+            now: now
         )
     }
 
-    private var presentation: QuotaRefreshPresentation {
+    private var refreshPresentation: QuotaRefreshPresentation {
         .make(
             refreshState: refreshState,
             hasQuota: snapshot.weeklyQuota.remainingPercent != nil,
-            isFresh: remaining != nil
+            isFresh: quotaPresentation.usedFraction != nil
         )
-    }
-
-    private var usedPercent: Double {
-        max(0, min(100, 100 - (remaining ?? 100)))
     }
 
     var body: some View {
@@ -42,12 +80,12 @@ struct MenuWeeklyQuotaSection: View {
                 ) {
                     Button(action: onRefresh) {
                         HStack(spacing: 6) {
-                            if presentation.showsProgress {
+                            if refreshPresentation.showsProgress {
                                 ProgressView().controlSize(.small)
                             } else {
                                 Image(systemName: "arrow.clockwise")
                             }
-                            Text(presentation.title)
+                            Text(refreshPresentation.title)
                         }
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(MenuDashboardVisual.success)
@@ -56,7 +94,7 @@ struct MenuWeeklyQuotaSection: View {
                         .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .disabled(!presentation.isEnabled)
+                    .disabled(!refreshPresentation.isEnabled)
                     .background(
                         Color.white.opacity(0.075),
                         in: Capsule()
@@ -70,9 +108,9 @@ struct MenuWeeklyQuotaSection: View {
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                         HStack(alignment: .lastTextBaseline, spacing: 4) {
-                            Text(remaining.map { String(Int($0.rounded())) } ?? "—")
+                            Text(quotaPresentation.remainingText)
                                 .font(.system(size: 38, weight: .bold, design: .rounded))
-                            if remaining != nil {
+                            if quotaPresentation.showsRemainingUnit {
                                 Text("%")
                                     .font(.system(size: 16, weight: .semibold))
                                     .foregroundStyle(.secondary)
@@ -85,16 +123,18 @@ struct MenuWeeklyQuotaSection: View {
                         HStack {
                             Text("本周已用")
                             Spacer()
-                            Text("\(Int(usedPercent.rounded()))%")
+                            Text(quotaPresentation.usedText)
                                 .fontWeight(.semibold)
                         }
 
                         GeometryReader { proxy in
                             ZStack(alignment: .leading) {
                                 Capsule().fill(Color.white.opacity(0.10))
-                                Capsule()
-                                    .fill(MenuDashboardVisual.accent)
-                                    .frame(width: proxy.size.width * usedPercent / 100)
+                                if let usedFraction = quotaPresentation.usedFraction {
+                                    Capsule()
+                                        .fill(MenuDashboardVisual.accent)
+                                        .frame(width: proxy.size.width * usedFraction)
+                                }
                             }
                         }
                         .frame(height: 9)
@@ -102,7 +142,7 @@ struct MenuWeeklyQuotaSection: View {
                         HStack {
                             Text("距离重置")
                             Spacer()
-                            Text(resetText)
+                            Text(quotaPresentation.resetText)
                                 .fontWeight(.semibold)
                         }
                     }
@@ -114,13 +154,5 @@ struct MenuWeeklyQuotaSection: View {
         .onReceive(freshnessTimer) { now in
             self.now = now
         }
-    }
-
-    private var resetText: String {
-        guard let date = snapshot.weeklyQuota.resetsAt else { return "—" }
-        let seconds = max(0, Int(date.timeIntervalSinceNow))
-        let days = seconds / 86_400
-        let hours = (seconds % 86_400) / 3_600
-        return "\(days) 天 \(hours) 小时"
     }
 }

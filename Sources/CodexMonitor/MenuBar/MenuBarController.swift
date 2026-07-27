@@ -6,7 +6,7 @@ enum MenuBarLayout {
 }
 
 @MainActor
-final class MenuBarController: NSObject {
+final class MenuBarController: NSObject, NSPopoverDelegate {
     private let store: MonitorStore
     private let statusItem = NSStatusBar.system.statusItem(
         withLength: MenuBarLayout.statusItemWidth
@@ -36,6 +36,7 @@ final class MenuBarController: NSObject {
 
         popover.behavior = .transient
         popover.animates = true
+        popover.delegate = self
         let rootView = MenuDashboardView(
             store: store,
             onClose: { [weak self] in self?.popover.performClose(nil) },
@@ -46,6 +47,7 @@ final class MenuBarController: NSObject {
         button.target = self
         button.action = #selector(togglePopover(_:))
         button.sendAction(on: [.leftMouseUp])
+        updateButtonAccessibility()
     }
 
     @objc private func togglePopover(_ sender: Any?) {
@@ -67,5 +69,24 @@ final class MenuBarController: NSObject {
             of: button,
             preferredEdge: .minY
         )
+    }
+
+    func popoverDidShow(_ notification: Notification) {
+        updateButtonAccessibility()
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        updateButtonAccessibility()
+    }
+
+    private func updateButtonAccessibility() {
+        guard let button = statusItem.button else { return }
+        button.setAccessibilityLabel("Codex Monitor")
+        button.setAccessibilityHelp(
+            popover.isShown
+                ? "收起 Codex Monitor 数据面板"
+                : "打开 Codex Monitor 数据面板"
+        )
+        button.setAccessibilityExpanded(popover.isShown)
     }
 }
