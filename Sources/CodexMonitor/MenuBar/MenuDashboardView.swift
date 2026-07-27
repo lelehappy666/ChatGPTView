@@ -18,37 +18,14 @@ enum MenuDashboardComposition {
     ]
 }
 
-enum MenuPopoverHoverAction: Equatable {
-    case none
-    case cancelClose
-    case scheduleClose
-}
-
-struct MenuPopoverHoverState {
-    private(set) var hasEntered = false
-
-    mutating func update(isInside: Bool) -> MenuPopoverHoverAction {
-        if isInside {
-            hasEntered = true
-            return .cancelClose
-        }
-        return hasEntered ? .scheduleClose : .none
-    }
-
-    mutating func reset() {
-        hasEntered = false
-    }
-}
-
 struct MenuDashboardView: View {
     @ObservedObject var store: MonitorStore
     let onClose: () -> Void
     let onQuit: () -> Void
+    let onHoverChanged: (Bool) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var githubStore = GitHubActivityStore()
-    @State private var popoverHoverState = MenuPopoverHoverState()
-    @State private var autoCloseTask: Task<Void, Never>?
 
     var body: some View {
         GeometryReader { proxy in
@@ -70,16 +47,12 @@ struct MenuDashboardView: View {
         .environment(\.colorScheme, .dark)
         .background(Color.black)
         .contentShape(Rectangle())
-        .onHover(perform: handlePopoverHover)
+        .onHover(perform: onHoverChanged)
         .onAppear {
-            resetPopoverHoverCycle()
             githubStore.primeFromCache()
         }
         .task {
             await githubStore.loadIfNeeded()
-        }
-        .onDisappear {
-            resetPopoverHoverCycle()
         }
     }
 
@@ -214,26 +187,4 @@ struct MenuDashboardView: View {
         }
     }
 
-    private func handlePopoverHover(_ isInside: Bool) {
-        switch popoverHoverState.update(isInside: isInside) {
-        case .none:
-            break
-        case .cancelClose:
-            autoCloseTask?.cancel()
-            autoCloseTask = nil
-        case .scheduleClose:
-            autoCloseTask?.cancel()
-            autoCloseTask = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 300_000_000)
-                guard !Task.isCancelled else { return }
-                onClose()
-            }
-        }
-    }
-
-    private func resetPopoverHoverCycle() {
-        autoCloseTask?.cancel()
-        autoCloseTask = nil
-        popoverHoverState.reset()
-    }
 }

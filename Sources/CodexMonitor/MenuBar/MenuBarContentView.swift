@@ -3,6 +3,8 @@ import SwiftUI
 
 struct MenuBarContentView: View {
     @ObservedObject var store: MonitorStore
+    let onHoverChanged: (Bool) -> Void
+
     @State private var now = Date.now
     @StateObject private var ticker = ProjectTickerState()
 
@@ -34,6 +36,8 @@ struct MenuBarContentView: View {
             }
         }
         .frame(height: 22)
+        .contentShape(Rectangle())
+        .onHover(perform: onHoverChanged)
         .onReceive(timer) { now in
             self.now = now
             ticker.projects = store.snapshot.projects.visibleForMenu(at: now)

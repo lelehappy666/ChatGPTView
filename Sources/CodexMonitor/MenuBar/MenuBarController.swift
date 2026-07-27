@@ -13,6 +13,9 @@ final class MenuBarController: NSObject, NSPopoverDelegate, AppSurfaceControllin
     )
     private let popover = NSPopover()
     private var hostingView: NSHostingView<MenuBarContentView>?
+    private var hoverCoordinator = MenuHoverCoordinator()
+    private var hoverOpenTask: Task<Void, Never>?
+    private var hoverCloseTask: Task<Void, Never>?
 
     init(store: MonitorStore) {
         self.store = store
@@ -21,7 +24,14 @@ final class MenuBarController: NSObject, NSPopoverDelegate, AppSurfaceControllin
 
     func start() {
         guard let button = statusItem.button else { return }
-        let hostingView = NSHostingView(rootView: MenuBarContentView(store: store))
+        let hostingView = NSHostingView(
+            rootView: MenuBarContentView(
+                store: store,
+                onHoverChanged: { [weak self] isInside in
+                    self?.handleStatusHover(isInside)
+                }
+            )
+        )
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         button.image = nil
         button.title = ""
@@ -39,8 +49,11 @@ final class MenuBarController: NSObject, NSPopoverDelegate, AppSurfaceControllin
         popover.delegate = self
         let rootView = MenuDashboardView(
             store: store,
-            onClose: { [weak self] in self?.popover.performClose(nil) },
-            onQuit: { NSApp.terminate(nil) }
+            onClose: { [weak self] in self?.closePopover() },
+            onQuit: { NSApp.terminate(nil) },
+            onHoverChanged: { [weak self] isInside in
+                self?.handlePanelHover(isInside)
+            }
         )
         popover.contentViewController = NSHostingController(rootView: rootView)
 
@@ -51,6 +64,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate, AppSurfaceControllin
     }
 
     func stop() {
+        cancelHoverTasks()
         popover.performClose(nil)
         hostingView?.removeFromSuperview()
         hostingView = nil
@@ -58,11 +72,16 @@ final class MenuBarController: NSObject, NSPopoverDelegate, AppSurfaceControllin
     }
 
     @objc private func togglePopover(_ sender: Any?) {
+        cancelHoverTasks()
         if popover.isShown {
-            popover.performClose(nil)
+            closePopover()
             return
         }
+        showPopover()
+    }
 
+    private func showPopover() {
+        guard !popover.isShown else { return }
         guard let button = statusItem.button else { return }
         let visibleFrame = button.window?.screen?.visibleFrame
             ?? NSScreen.main?.visibleFrame
@@ -79,11 +98,81 @@ final class MenuBarController: NSObject, NSPopoverDelegate, AppSurfaceControllin
     }
 
     func popoverDidShow(_ notification: Notification) {
+        hoverCoordinator.popoverDidShow()
         updateButtonAccessibility()
     }
 
     func popoverDidClose(_ notification: Notification) {
+        hoverOpenTask?.cancel()
+        hoverOpenTask = nil
+        hoverCloseTask?.cancel()
+        hoverCloseTask = nil
+        hoverCoordinator.popoverDidClose()
         updateButtonAccessibility()
+    }
+
+    private func closePopover() {
+        hoverOpenTask?.cancel()
+        hoverOpenTask = nil
+        popover.performClose(nil)
+    }
+
+    private func handleStatusHover(_ isInside: Bool) {
+        perform(
+            hoverCoordinator.statusHoverChanged(
+                isInside: isInside,
+                isPopoverShown: popover.isShown
+            )
+        )
+    }
+
+    private func handlePanelHover(_ isInside: Bool) {
+        perform(
+            hoverCoordinator.panelHoverChanged(
+                isInside: isInside,
+                isPopoverShown: popover.isShown
+            )
+        )
+    }
+
+    private func perform(_ actions: [MenuHoverAction]) {
+        for action in actions {
+            switch action {
+            case .scheduleOpen:
+                hoverOpenTask?.cancel()
+                hoverOpenTask = Task { @MainActor [weak self] in
+                    try? await Task.sleep(
+                        nanoseconds: MenuHoverCoordinator.openDelayNanoseconds
+                    )
+                    guard !Task.isCancelled else { return }
+                    self?.showPopover()
+                }
+            case .cancelOpen:
+                hoverOpenTask?.cancel()
+                hoverOpenTask = nil
+            case .scheduleClose(let delay):
+                hoverCloseTask?.cancel()
+                hoverCloseTask = Task { @MainActor [weak self] in
+                    try? await Task.sleep(nanoseconds: delay.nanoseconds)
+                    guard !Task.isCancelled, let self else { return }
+                    guard !hoverCoordinator.isStatusHovered,
+                          !hoverCoordinator.isPanelHovered else {
+                        return
+                    }
+                    closePopover()
+                }
+            case .cancelClose:
+                hoverCloseTask?.cancel()
+                hoverCloseTask = nil
+            }
+        }
+    }
+
+    private func cancelHoverTasks() {
+        hoverOpenTask?.cancel()
+        hoverOpenTask = nil
+        hoverCloseTask?.cancel()
+        hoverCloseTask = nil
     }
 
     private func updateButtonAccessibility() {

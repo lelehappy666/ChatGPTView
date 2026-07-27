@@ -184,25 +184,6 @@ final class MenuDashboardCompositionTests: XCTestCase {
         )
     }
 
-    func testPopoverAutoCloseStartsOnlyAfterPointerEntered() {
-        var state = MenuPopoverHoverState()
-
-        XCTAssertEqual(state.update(isInside: false), .none)
-        XCTAssertEqual(state.update(isInside: true), .cancelClose)
-        XCTAssertEqual(state.update(isInside: false), .scheduleClose)
-        XCTAssertEqual(state.update(isInside: true), .cancelClose)
-    }
-
-    func testPopoverAutoCloseResetStartsANewOpeningCycle() {
-        var state = MenuPopoverHoverState()
-        _ = state.update(isInside: true)
-        _ = state.update(isInside: false)
-
-        state.reset()
-
-        XCTAssertEqual(state.update(isInside: false), .none)
-    }
-
     private func makeGitHubSnapshot() -> GitHubActivitySnapshot {
         GitHubActivitySnapshot(
             username: "octocat",
