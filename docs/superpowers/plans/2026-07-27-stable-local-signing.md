@@ -286,17 +286,22 @@ CERTIFICATE_FINGERPRINT="$(
     openssl x509 -in "$TMP/certificate.pem" -noout -fingerprint -sha256 \
         | awk -F= '{ gsub(/:/, "", $2); print $2 }'
 )"
+P12_PASSWORD="$(openssl rand -hex 32)"
 
 openssl pkcs12 -export \
     -inkey "$TMP/private-key.pem" \
     -in "$TMP/certificate.pem" \
     -out "$TMP/identity.p12" \
-    -passout pass:
+    -passout "pass:$P12_PASSWORD" \
+    -keypbe PBE-SHA1-3DES \
+    -certpbe PBE-SHA1-3DES \
+    -macalg sha1
 
 security import "$TMP/identity.p12" \
     -k "$LOGIN_KEYCHAIN" \
-    -P "" \
+    -P "$P12_PASSWORD" \
     -T /usr/bin/codesign
+unset P12_PASSWORD
 IMPORTED=1
 
 security add-trusted-cert \

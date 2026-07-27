@@ -11,6 +11,7 @@ IDENTITY_MARKER="$TEST_ROOT/identity-created"
 ROLLBACK_MARKER="$TEST_ROOT/identity-rolled-back"
 GENERATED_CERTIFICATE="$TEST_ROOT/generated-certificate.pem"
 GENERATED_IDENTITY="$TEST_ROOT/generated-identity.p12"
+GENERATED_IDENTITY_PASSWORD="$TEST_ROOT/generated-identity-password"
 CERTIFICATE_ONLY_IDENTITY="$TEST_ROOT/certificate-only/identity.p12"
 IMPORT_VALIDATION_DIR="$TEST_ROOT/import-validation"
 EXPECTED_FINGERPRINT_FILE="$TEST_ROOT/certificate-fingerprint"
@@ -21,7 +22,7 @@ mkdir -p "$FAKE_BIN" "$TEST_ROOT/tmp" "${MOCK_KEYCHAIN%/*}"
 touch "$COMMAND_LOG"
 export COMMAND_LOG MOCK_KEYCHAIN IDENTITY_MARKER ROLLBACK_MARKER
 export GENERATED_CERTIFICATE GENERATED_IDENTITY IMPORT_VALIDATION_DIR
-export EXPECTED_FINGERPRINT_FILE
+export GENERATED_IDENTITY_PASSWORD EXPECTED_FINGERPRINT_FILE
 
 cat >"$FAKE_BIN/security" <<'STUB'
 #!/usr/bin/env bash
@@ -80,17 +81,26 @@ case "${args[0]:-}" in
         reject_forbidden_access
         [[ ${#args[@]} -eq 8 && "${args[1]}" == */identity.p12 &&
             "${args[2]}" == "-k" && "${args[3]}" == "$MOCK_KEYCHAIN" &&
-            "${args[4]}" == "-P" && -z "${args[5]}" &&
+            "${args[4]}" == "-P" && "${args[5]}" =~ ^[0-9a-f]{64}$ &&
             "${args[6]}" == "-T" && "${args[7]}" == "/usr/bin/codesign" ]] ||
-            fail "导入必须是无密码 PKCS#12，且仅授权 /usr/bin/codesign"
+            fail "导入必须使用随机 256 位口令，且仅授权 /usr/bin/codesign"
+        identity_password="${args[5]}"
+        pkcs12_info="$(
+            openssl pkcs12 -in "${args[1]}" \
+                -passin "pass:$identity_password" -info -noout 2>&1
+        )"
+        grep -Fiq 'MAC: sha1' <<<"$pkcs12_info" ||
+            fail "PKCS#12 必须使用 macOS 兼容的 SHA-1 MAC"
+        [[ "$(grep -Fic 'pbeWithSHA1And3-KeyTripleDES-CBC' <<<"$pkcs12_info")" -ge 2 ]] ||
+            fail "PKCS#12 的证书和私钥必须使用显式 3DES 兼容加密"
         rm -rf "$IMPORT_VALIDATION_DIR"
         mkdir -p "$IMPORT_VALIDATION_DIR"
         certificate_file="$IMPORT_VALIDATION_DIR/certificate.pem"
         private_key_file="$IMPORT_VALIDATION_DIR/private-key.pem"
-        openssl pkcs12 -in "${args[1]}" -passin pass: \
+        openssl pkcs12 -in "${args[1]}" -passin "pass:$identity_password" \
             -clcerts -nokeys -out "$certificate_file"
         openssl x509 -in "$certificate_file" -noout
-        openssl pkcs12 -in "${args[1]}" -passin pass: \
+        openssl pkcs12 -in "${args[1]}" -passin "pass:$identity_password" \
             -nocerts -nodes -out "$private_key_file"
         openssl pkey -in "$private_key_file" -noout
         certificate_public_key="$({
@@ -107,6 +117,7 @@ case "${args[0]:-}" in
         [[ -n "$certificate_public_key" && "$certificate_public_key" == "$private_public_key" ]] ||
             fail "PKCS#12 证书与私钥不匹配"
         cp "${args[1]}" "$GENERATED_IDENTITY"
+        printf '%s' "$identity_password" >"$GENERATED_IDENTITY_PASSWORD"
         [[ "${MOCK_FAIL_AT:-}" != "import" ]] || exit 41
         touch "$IDENTITY_MARKER"
         ;;
@@ -152,14 +163,15 @@ run_setup() {
 run_fake_import() {
     PATH="$FAKE_BIN:$PATH" security import "$1" \
         -k "$MOCK_KEYCHAIN" \
-        -P "" \
+        -P "$2" \
         -T /usr/bin/codesign
 }
 
 reset_case() {
     : >"$COMMAND_LOG"
     rm -f "$IDENTITY_MARKER" "$ROLLBACK_MARKER" "$GENERATED_CERTIFICATE" \
-        "$GENERATED_IDENTITY" "$EXPECTED_FINGERPRINT_FILE" "$ROLLBACK_OUTPUT" \
+        "$GENERATED_IDENTITY" "$GENERATED_IDENTITY_PASSWORD" \
+        "$EXPECTED_FINGERPRINT_FILE" "$ROLLBACK_OUTPUT" \
         "$CERTIFICATE_ONLY_OUTPUT" "$INVALID_KEYCHAIN_OUTPUT"
     rm -rf "$IMPORT_VALIDATION_DIR"
 }
@@ -189,8 +201,12 @@ assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,fin
 [[ -f "$IDENTITY_MARKER" ]]
 [[ ! -e "$ROLLBACK_MARKER" ]]
 [[ -f "$GENERATED_CERTIFICATE" && -f "$GENERATED_IDENTITY" ]]
-openssl pkcs12 -in "$GENERATED_IDENTITY" -passin pass: -noout -nokeys
-openssl pkcs12 -in "$GENERATED_IDENTITY" -passin pass: -noout -nocerts
+[[ -s "$GENERATED_IDENTITY_PASSWORD" ]]
+generated_identity_password="$(<"$GENERATED_IDENTITY_PASSWORD")"
+openssl pkcs12 -in "$GENERATED_IDENTITY" \
+    -passin "pass:$generated_identity_password" -noout -nokeys
+openssl pkcs12 -in "$GENERATED_IDENTITY" \
+    -passin "pass:$generated_identity_password" -noout -nocerts
 basic_constraints="$(
     openssl x509 -in "$GENERATED_CERTIFICATE" -noout -ext basicConstraints
 )"
@@ -210,13 +226,20 @@ openssl x509 -in "$GENERATED_CERTIFICATE" -noout -ext extendedKeyUsage \
 assert_temporary_material_cleaned
 
 mkdir -p "${CERTIFICATE_ONLY_IDENTITY%/*}"
+certificate_only_password="$(
+    printf '0123456789abcdef%.0s' {1..4}
+)"
 openssl pkcs12 -export \
     -nokeys \
     -in "$GENERATED_CERTIFICATE" \
     -out "$CERTIFICATE_ONLY_IDENTITY" \
-    -passout pass:
+    -passout "pass:$certificate_only_password" \
+    -keypbe PBE-SHA1-3DES \
+    -certpbe PBE-SHA1-3DES \
+    -macalg sha1
 reset_case
-if run_fake_import "$CERTIFICATE_ONLY_IDENTITY" >"$CERTIFICATE_ONLY_OUTPUT" 2>&1; then
+if run_fake_import "$CERTIFICATE_ONLY_IDENTITY" "$certificate_only_password" \
+    >"$CERTIFICATE_ONLY_OUTPUT" 2>&1; then
     echo "证书-only PKCS#12 不应建立完整身份" >&2
     exit 1
 fi
