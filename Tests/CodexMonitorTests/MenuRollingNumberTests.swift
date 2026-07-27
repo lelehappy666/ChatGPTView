@@ -46,4 +46,24 @@ final class MenuRollingNumberTests: XCTestCase {
             "—"
         )
     }
+
+    func testAnimatedChartPresentationStartsAtZeroProgress() {
+        XCTAssertEqual(
+            MenuChartAnimationPlan.initialProgress(
+                targetProgress: 0.72,
+                reduceMotion: false
+            ),
+            0
+        )
+    }
+
+    func testReducedMotionChartStartsAtTargetProgress() {
+        XCTAssertEqual(
+            MenuChartAnimationPlan.initialProgress(
+                targetProgress: 0.72,
+                reduceMotion: true
+            ),
+            0.72
+        )
+    }
 }

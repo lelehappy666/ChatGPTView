@@ -62,6 +62,19 @@ enum MenuDailyTokenBarPlan {
     }
 }
 
+enum MenuChartAnimationPlan {
+    static func initialProgress(
+        targetProgress: Double,
+        reduceMotion: Bool
+    ) -> Double {
+        reduceMotion ? normalized(targetProgress) : 0
+    }
+
+    static func normalized(_ progress: Double) -> Double {
+        max(0, min(1, progress))
+    }
+}
+
 struct MenuProjectAnalyticsSection: View {
     let analytics: ProjectAnalyticsSnapshot
     let dailyActivity: [UsageDay]
@@ -169,24 +182,11 @@ struct MenuProjectAnalyticsSection: View {
                         ForEach(bars) { bar in
                             VStack(spacing: 2) {
                                 Spacer(minLength: 0)
-                                RoundedRectangle(cornerRadius: 1.5)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [
-                                                MenuDashboardVisual.accent.opacity(0.65),
-                                                MenuDashboardVisual.accent
-                                            ],
-                                            startPoint: .bottom,
-                                            endPoint: .top
-                                        )
-                                    )
-                                    .frame(
-                                        height: max(
-                                            3,
-                                            (proxy.size.height - 12) * bar.relativeHeight
-                                        )
-                                    )
-                                    .help("\(weekday(bar.date)) · \(MetricFormatter.tokens(bar.tokens)) Token")
+                                MenuAnimatedTokenBar(
+                                    targetProgress: bar.relativeHeight,
+                                    availableHeight: proxy.size.height - 12,
+                                    helpText: "\(weekday(bar.date)) · \(MetricFormatter.tokens(bar.tokens)) Token"
+                                )
                                 Text(weekday(bar.date))
                                     .font(.system(size: 6.5))
                                     .foregroundStyle(.secondary)
@@ -287,6 +287,113 @@ struct MenuProjectAnalyticsSection: View {
 
     private func rowAccessibilityValue(_ row: ProjectAnalyticsRow) -> String {
         "\(MetricFormatter.tokens(row.tokens)) Token，\(row.sessions) 次会话，\(row.activeDays) 个活跃日"
+    }
+}
+
+private struct MenuAnimatedTokenBar: View {
+    let targetProgress: Double
+    let availableHeight: CGFloat
+    let helpText: String
+
+    @EnvironmentObject private var animationContext: MenuNumberAnimationContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var displayedProgress: Double
+    @State private var animationTask: Task<Void, Never>?
+
+    init(
+        targetProgress: Double,
+        availableHeight: CGFloat,
+        helpText: String
+    ) {
+        self.targetProgress = targetProgress
+        self.availableHeight = availableHeight
+        self.helpText = helpText
+        _displayedProgress = State(initialValue: targetProgress)
+    }
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 1.5)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        MenuDashboardVisual.accent.opacity(0.65),
+                        MenuDashboardVisual.accent
+                    ],
+                    startPoint: .bottom,
+                    endPoint: .top
+                )
+            )
+            .frame(
+                height: max(
+                    3,
+                    availableHeight * displayedProgress
+                )
+            )
+            .help(helpText)
+            .onAppear(perform: replayFromZero)
+            .onChange(of: animationContext.cycle) {
+                replayFromZero()
+            }
+            .onChange(of: targetProgress) {
+                animateToTarget()
+            }
+            .onChange(of: reduceMotion) {
+                if reduceMotion {
+                    setWithoutAnimation(normalizedTarget)
+                } else {
+                    replayFromZero()
+                }
+            }
+            .onDisappear {
+                animationTask?.cancel()
+                animationTask = nil
+            }
+    }
+
+    private var normalizedTarget: Double {
+        MenuChartAnimationPlan.normalized(targetProgress)
+    }
+
+    private func replayFromZero() {
+        animationTask?.cancel()
+        let initialProgress = MenuChartAnimationPlan.initialProgress(
+            targetProgress: targetProgress,
+            reduceMotion: reduceMotion
+        )
+        setWithoutAnimation(initialProgress)
+
+        guard initialProgress != normalizedTarget else {
+            animationTask = nil
+            return
+        }
+
+        animationTask = Task { @MainActor in
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.45)) {
+                displayedProgress = normalizedTarget
+            }
+        }
+    }
+
+    private func animateToTarget() {
+        animationTask?.cancel()
+        animationTask = nil
+        guard !reduceMotion else {
+            setWithoutAnimation(normalizedTarget)
+            return
+        }
+        withAnimation(.easeOut(duration: 0.45)) {
+            displayedProgress = normalizedTarget
+        }
+    }
+
+    private func setWithoutAnimation(_ progress: Double) {
+        var transaction = Transaction()
+        transaction.animation = nil
+        withTransaction(transaction) {
+            displayedProgress = progress
+        }
     }
 }
 
