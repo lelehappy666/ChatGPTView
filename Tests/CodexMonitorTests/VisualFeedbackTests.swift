@@ -61,10 +61,24 @@ final class VisualFeedbackTests: XCTestCase {
     }
 
     func testReferenceActivityGridBuildsSixteenWeeks() {
-        XCTAssertEqual(MenuActivityGrid.days(from: []).count, 112)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let today = calendar.date(
+            from: DateComponents(year: 2026, month: 7, day: 29)
+        )!
+        let days = MenuActivityGrid.days(
+            from: [],
+            calendar: calendar,
+            today: today
+        )
+
+        XCTAssertEqual(days.count, 112)
+        XCTAssertEqual(calendar.component(.weekday, from: days[0].date), 2)
     }
 
     func testDailyTokenBarsKeepLastSevenCalendarDays() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         let days = (0..<9).map {
             UsageDay(
                 date: Date(timeIntervalSince1970: Double($0 * 86_400)),
@@ -74,8 +88,42 @@ final class VisualFeedbackTests: XCTestCase {
         }
 
         XCTAssertEqual(
-            MenuDailyTokenBarPlan.make(days: days).map(\.tokens),
+            MenuDailyTokenBarPlan.make(
+                days: days,
+                calendar: calendar,
+                today: days.last!.date
+            ).map(\.tokens),
             [300, 400, 500, 600, 700, 800, 900]
+        )
+    }
+
+    func testDailyTokenBarsFillMissingCalendarDaysWithZero() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let today = calendar.date(
+            from: DateComponents(year: 2026, month: 7, day: 27)
+        )!
+        let input = [
+            UsageDay(
+                date: calendar.date(byAdding: .day, value: -6, to: today)!,
+                tokens: 100,
+                sessions: 1
+            ),
+            UsageDay(
+                date: calendar.date(byAdding: .day, value: -4, to: today)!,
+                tokens: 300,
+                sessions: 1
+            ),
+            UsageDay(date: today, tokens: 700, sessions: 1)
+        ]
+
+        XCTAssertEqual(
+            MenuDailyTokenBarPlan.make(
+                days: input,
+                calendar: calendar,
+                today: today
+            ).map(\.tokens),
+            [100, 0, 300, 0, 0, 0, 700]
         )
     }
 }

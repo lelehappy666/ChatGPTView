@@ -27,8 +27,30 @@ struct MenuDailyTokenBar: Identifiable, Equatable {
 }
 
 enum MenuDailyTokenBarPlan {
-    static func make(days: [UsageDay]) -> [MenuDailyTokenBar] {
-        let selected = Array(days.sorted { $0.date < $1.date }.suffix(7))
+    static func make(
+        days: [UsageDay],
+        calendar: Calendar = .current,
+        today: Date = .now
+    ) -> [MenuDailyTokenBar] {
+        let end = calendar.startOfDay(for: today)
+        let start = calendar.date(byAdding: .day, value: -6, to: end) ?? end
+        let indexed = Dictionary(
+            uniqueKeysWithValues: days.map {
+                (calendar.startOfDay(for: $0.date), $0.tokens)
+            }
+        )
+        let selected = (0..<7).map { offset -> UsageDay in
+            let date = calendar.date(
+                byAdding: .day,
+                value: offset,
+                to: start
+            ) ?? start
+            return UsageDay(
+                date: date,
+                tokens: indexed[date] ?? 0,
+                sessions: 0
+            )
+        }
         let maximum = max(1, selected.map(\.tokens).max() ?? 1)
         return selected.map {
             MenuDailyTokenBar(
@@ -217,7 +239,11 @@ struct MenuProjectAnalyticsSection: View {
                         )
                 }
                 .onHover { hovering in
-                    hoveredProjectID = hovering ? row.id : nil
+                    if hovering {
+                        hoveredProjectID = row.id
+                    } else if hoveredProjectID == row.id {
+                        hoveredProjectID = nil
+                    }
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(row.name)

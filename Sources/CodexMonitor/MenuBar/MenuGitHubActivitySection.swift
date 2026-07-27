@@ -27,6 +27,23 @@ enum GitHubMenuPresentation: Equatable {
     }
 }
 
+enum MenuGitHubMonthLabelPlan {
+    static func titles(
+        days: [GitHubContributionDay],
+        calendar: Calendar = .current
+    ) -> [String] {
+        var lastKey: DateComponents?
+        let titles = days.sorted { $0.date < $1.date }.compactMap { day -> String? in
+            let key = calendar.dateComponents([.year, .month], from: day.date)
+            guard key != lastKey else { return nil }
+            lastKey = key
+            guard let month = key.month else { return nil }
+            return "\(month)月"
+        }
+        return Array(titles.suffix(7))
+    }
+}
+
 struct MenuGitHubActivitySection: View {
     @ObservedObject private var store: GitHubActivityStore
 
@@ -122,10 +139,20 @@ private struct MenuGitHubActivityContent: View {
                 .frame(width: 74, alignment: .leading)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("11月        12月        1月        2月        3月        4月        5月")
-                        .font(.system(size: 5.8))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    HStack(spacing: 0) {
+                        ForEach(
+                            MenuGitHubMonthLabelPlan.titles(
+                                days: snapshot.contributionDays
+                            ),
+                            id: \.self
+                        ) { title in
+                            Text(title)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .font(.system(size: 5.8))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
 
                     HStack(spacing: 3) {
                         VStack(spacing: 6) {

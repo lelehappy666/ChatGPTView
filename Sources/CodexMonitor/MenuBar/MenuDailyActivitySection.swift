@@ -26,7 +26,18 @@ enum MenuActivityGrid {
         today: Date = .now
     ) -> [UsageDay] {
         let end = calendar.startOfDay(for: today)
-        let start = calendar.date(byAdding: .day, value: -111, to: end) ?? end
+        let weekday = calendar.component(.weekday, from: end)
+        let daysSinceMonday = (weekday + 5) % 7
+        let currentWeekMonday = calendar.date(
+            byAdding: .day,
+            value: -daysSinceMonday,
+            to: end
+        ) ?? end
+        let start = calendar.date(
+            byAdding: .day,
+            value: -15 * 7,
+            to: currentWeekMonday
+        ) ?? currentWeekMonday
         let indexed = Dictionary(
             uniqueKeysWithValues: input.map {
                 (calendar.startOfDay(for: $0.date), $0)

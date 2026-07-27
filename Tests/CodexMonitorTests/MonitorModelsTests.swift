@@ -135,4 +135,19 @@ final class MonitorModelsTests: XCTestCase {
             .fresh(remainingPercent: 76)
         )
     }
+
+    func testQuotaDisplayStateRejectsValueAfterItsResetDate() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        XCTAssertEqual(
+            QuotaFreshnessPolicy.displayState(
+                for: WeeklyQuota(
+                    remainingPercent: 77,
+                    resetsAt: now.addingTimeInterval(-1),
+                    updatedAt: now.addingTimeInterval(-60)
+                ),
+                at: now
+            ),
+            .unavailable
+        )
+    }
 }

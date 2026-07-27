@@ -141,4 +141,37 @@ final class GitHubModelsTests: XCTestCase {
             RepositoryGridMetrics.make(density: .compact).rowHeight
         )
     }
+
+    func testGitHubMonthLabelsFollowContributionDates() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let days = [
+            GitHubContributionDay(
+                date: calendar.date(
+                    from: DateComponents(year: 2026, month: 5, day: 1)
+                )!,
+                contributionCount: 0
+            ),
+            GitHubContributionDay(
+                date: calendar.date(
+                    from: DateComponents(year: 2026, month: 6, day: 1)
+                )!,
+                contributionCount: 0
+            ),
+            GitHubContributionDay(
+                date: calendar.date(
+                    from: DateComponents(year: 2026, month: 7, day: 1)
+                )!,
+                contributionCount: 0
+            )
+        ]
+
+        XCTAssertEqual(
+            MenuGitHubMonthLabelPlan.titles(
+                days: days,
+                calendar: calendar
+            ),
+            ["5月", "6月", "7月"]
+        )
+    }
 }

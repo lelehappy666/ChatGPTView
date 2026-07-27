@@ -65,6 +65,9 @@ enum QuotaFreshnessPolicy {
         guard let remainingPercent = quota.remainingPercent else {
             return .unavailable
         }
+        if let resetsAt = quota.resetsAt, resetsAt <= now {
+            return .unavailable
+        }
         if visibleRemainingPercent(for: quota, at: now) != nil {
             return .fresh(remainingPercent: remainingPercent)
         }
