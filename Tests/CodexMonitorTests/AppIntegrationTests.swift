@@ -50,9 +50,9 @@ final class AppIntegrationTests: XCTestCase {
         XCTAssertEqual(plist["CFBundleIconFile"] as? String, "AppIcon")
         XCTAssertEqual(
             plist["CFBundleShortVersionString"] as? String,
-            "0.1.19"
+            "0.1.20"
         )
-        XCTAssertEqual(plist["CFBundleVersion"] as? String, "20")
+        XCTAssertEqual(plist["CFBundleVersion"] as? String, "21")
         XCTAssertTrue(
             FileManager.default.fileExists(
                 atPath: root.appendingPathComponent("Resources/AppIcon.icns").path
