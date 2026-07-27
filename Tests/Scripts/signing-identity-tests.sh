@@ -21,6 +21,13 @@ MOCK_IDENTITIES='  1) ABC "Codex Monitor Local Signing"'
 export MOCK_IDENTITIES
 [[ "$(PATH="$TMP:$PATH" resolve_signing_identity)" == "Codex Monitor Local Signing" ]]
 
+MOCK_IDENTITIES='  1) ABC "Codex Monitor Local Signing Backup"'
+export MOCK_IDENTITIES
+if PATH="$TMP:$PATH" resolve_signing_identity >/dev/null 2>&1; then
+    echo "相近身份不应成功"
+    exit 1
+fi
+
 MOCK_IDENTITIES=""
 export MOCK_IDENTITIES
 if PATH="$TMP:$PATH" resolve_signing_identity >/dev/null 2>&1; then
