@@ -290,6 +290,12 @@ openssl pkcs12 -in "$GENERATED_IDENTITY" \
 openssl pkcs12 -in "$GENERATED_IDENTITY" \
     -passin "pass:$generated_identity_password" -noout -nocerts
 openssl verify -CAfile "$GENERATED_CA_CERTIFICATE" "$GENERATED_CERTIFICATE"
+macos_code_sign_verify="$(
+    security verify-cert -N -p codeSign \
+        -c "$GENERATED_CERTIFICATE" \
+        -r "$GENERATED_CA_CERTIFICATE" 2>&1 || true
+)"
+grep -Fq 'Cert Verify Result: No error.' <<<"$macos_code_sign_verify"
 leaf_subject="$(openssl x509 -in "$GENERATED_CERTIFICATE" -noout -subject)"
 leaf_issuer="$(openssl x509 -in "$GENERATED_CERTIFICATE" -noout -issuer)"
 [[ "${leaf_subject#subject=}" != "${leaf_issuer#issuer=}" ]]
@@ -307,8 +313,11 @@ if grep -Fq 'Certificate Sign' <<<"$key_usage"; then
     echo "本地代码签名证书不应具有证书签发用途" >&2
     exit 1
 fi
-openssl x509 -in "$GENERATED_CERTIFICATE" -noout -ext extendedKeyUsage \
-    | grep -Fq 'Code Signing'
+extended_key_usage="$(
+    openssl x509 -in "$GENERATED_CERTIFICATE" -noout -ext extendedKeyUsage
+)"
+grep -Fq 'X509v3 Extended Key Usage: critical' <<<"$extended_key_usage"
+grep -Fq 'Code Signing' <<<"$extended_key_usage"
 assert_temporary_material_cleaned
 
 mkdir -p "${CERTIFICATE_ONLY_IDENTITY%/*}"

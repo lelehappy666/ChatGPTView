@@ -62,7 +62,7 @@ openssl req -new -newkey rsa:2048 -sha256 -nodes \
     -subj "/CN=$LOCAL_SIGNING_IDENTITY/O=Codex Monitor Local Development/" \
     -addext "basicConstraints=critical,CA:FALSE" \
     -addext "keyUsage=critical,digitalSignature" \
-    -addext "extendedKeyUsage=codeSigning"
+    -addext "extendedKeyUsage=critical,codeSigning"
 
 openssl x509 -req \
     -in "$TMP/certificate.csr" \

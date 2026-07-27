@@ -199,7 +199,7 @@ grep -F '<import>' "$COMMAND_LOG"
 grep -F '<-T> </usr/bin/codesign>' "$COMMAND_LOG"
 grep -F '<add-trusted-cert>' "$COMMAND_LOG"
 grep -F '<-p> <codeSign>' "$COMMAND_LOG"
-grep -F '<extendedKeyUsage=codeSigning>' "$COMMAND_LOG"
+grep -F '<extendedKeyUsage=critical,codeSigning>' "$COMMAND_LOG"
 
 if find "$TEST_ROOT/tmp" -type f \
     \( -name 'private-key.pem' -o -name 'certificate.pem' \) \
@@ -295,7 +295,7 @@ openssl req -new -newkey rsa:2048 -sha256 -nodes \
     -subj "/CN=$LOCAL_SIGNING_IDENTITY/O=Codex Monitor Local Development/" \
     -addext "basicConstraints=critical,CA:FALSE" \
     -addext "keyUsage=critical,digitalSignature" \
-    -addext "extendedKeyUsage=codeSigning"
+    -addext "extendedKeyUsage=critical,codeSigning"
 
 openssl x509 -req \
     -in "$TMP/certificate.csr" \
