@@ -7,7 +7,7 @@ final class LayoutContractTests: XCTestCase {
             MenuPopoverLayout.contentSize(
                 for: CGRect(x: 0, y: 0, width: 800, height: 700)
             ),
-            CGSize(width: 720, height: 676)
+            CGSize(width: 640, height: 630)
         )
     }
 

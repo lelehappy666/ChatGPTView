@@ -5,7 +5,7 @@ import Combine
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: MonitorStore?
     private var watcher: SessionDirectoryWatcher?
-    private var menuBarController: MenuBarController?
+    private var appSurfaceLifecycle: AppSurfaceLifecycle?
     private var periodicRefreshCancellable: AnyCancellable?
     private var wakeObserver: NSObjectProtocol?
     private let completionNotifier = ProjectCompletionNotifier()
@@ -57,9 +57,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        let menuBarController = MenuBarController(store: store)
-        menuBarController.start()
-        self.menuBarController = menuBarController
+        let appSurfaceLifecycle = AppSurfaceLifecycle(
+            surfaces: [
+                MenuBarController(store: store),
+                NotchWindowController(store: store)
+            ]
+        )
+        appSurfaceLifecycle.start()
+        self.appSurfaceLifecycle = appSurfaceLifecycle
 
         store.requestRefresh()
     }
@@ -70,6 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let wakeObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
         }
+        appSurfaceLifecycle?.stop()
         watcher?.stop()
     }
 

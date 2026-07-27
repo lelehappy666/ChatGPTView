@@ -2,6 +2,19 @@ import XCTest
 @testable import CodexMonitor
 
 final class AppIntegrationTests: XCTestCase {
+    @MainActor
+    func testAppSurfaceLifecycleStartsAndStopsEverySurface() {
+        let menu = RecordingAppSurface()
+        let notch = RecordingAppSurface()
+        let lifecycle = AppSurfaceLifecycle(surfaces: [menu, notch])
+
+        lifecycle.start()
+        lifecycle.stop()
+
+        XCTAssertEqual(menu.events, ["启动", "停止"])
+        XCTAssertEqual(notch.events, ["启动", "停止"])
+    }
+
     func testSessionsRootUsesCodexDirectoryInsideHome() {
         let home = URL(fileURLWithPath: "/Users/tester", isDirectory: true)
 
@@ -37,9 +50,9 @@ final class AppIntegrationTests: XCTestCase {
         XCTAssertEqual(plist["CFBundleIconFile"] as? String, "AppIcon")
         XCTAssertEqual(
             plist["CFBundleShortVersionString"] as? String,
-            "0.1.13"
+            "0.1.14"
         )
-        XCTAssertEqual(plist["CFBundleVersion"] as? String, "14")
+        XCTAssertEqual(plist["CFBundleVersion"] as? String, "15")
         XCTAssertTrue(
             FileManager.default.fileExists(
                 atPath: root.appendingPathComponent("Resources/AppIcon.icns").path
@@ -216,5 +229,18 @@ final class AppIntegrationTests: XCTestCase {
             )
             XCTAssertTrue(source.contains("DashboardCard"), page)
         }
+    }
+}
+
+@MainActor
+private final class RecordingAppSurface: AppSurfaceControlling {
+    var events: [String] = []
+
+    func start() {
+        events.append("启动")
+    }
+
+    func stop() {
+        events.append("停止")
     }
 }

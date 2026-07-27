@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class NotchWindowController {
+final class NotchWindowController: AppSurfaceControlling {
     private let store: MonitorStore
     private let panel: NSPanel
     private var localMonitor: Any?

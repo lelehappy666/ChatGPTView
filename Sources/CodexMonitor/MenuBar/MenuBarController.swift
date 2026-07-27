@@ -6,7 +6,7 @@ enum MenuBarLayout {
 }
 
 @MainActor
-final class MenuBarController: NSObject, NSPopoverDelegate {
+final class MenuBarController: NSObject, NSPopoverDelegate, AppSurfaceControlling {
     private let store: MonitorStore
     private let statusItem = NSStatusBar.system.statusItem(
         withLength: MenuBarLayout.statusItemWidth
@@ -48,6 +48,13 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         button.action = #selector(togglePopover(_:))
         button.sendAction(on: [.leftMouseUp])
         updateButtonAccessibility()
+    }
+
+    func stop() {
+        popover.performClose(nil)
+        hostingView?.removeFromSuperview()
+        hostingView = nil
+        NSStatusBar.system.removeStatusItem(statusItem)
     }
 
     @objc private func togglePopover(_ sender: Any?) {
