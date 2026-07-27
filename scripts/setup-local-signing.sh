@@ -24,8 +24,9 @@ cleanup() {
     trap - EXIT
 
     if ((status != 0 && IMPORTED == 1 && ${#CERTIFICATE_FINGERPRINT} > 0)); then
-        security delete-identity -Z "$CERTIFICATE_FINGERPRINT" -t "$LOGIN_KEYCHAIN" \
-            >/dev/null 2>&1 || true
+        if ! security delete-identity -Z "$CERTIFICATE_FINGERPRINT" -t "$LOGIN_KEYCHAIN"; then
+            echo "本地签名身份回滚失败：无法删除本次创建的身份。" >&2
+        fi
     fi
 
     rm -rf "$TMP"
@@ -46,8 +47,15 @@ CERTIFICATE_FINGERPRINT="$(
         | awk -F= '{ gsub(/:/, "", $2); print $2 }'
 )"
 
-security import "$TMP/private-key.pem" \
+openssl pkcs12 -export \
+    -inkey "$TMP/private-key.pem" \
+    -in "$TMP/certificate.pem" \
+    -out "$TMP/identity.p12" \
+    -passout pass:
+
+security import "$TMP/identity.p12" \
     -k "$LOGIN_KEYCHAIN" \
+    -P "" \
     -T /usr/bin/codesign
 IMPORTED=1
 

@@ -10,11 +10,13 @@ MOCK_KEYCHAIN="$TEST_ROOT/keychains/login keychain-db"
 IDENTITY_MARKER="$TEST_ROOT/identity-created"
 ROLLBACK_MARKER="$TEST_ROOT/identity-rolled-back"
 GENERATED_CERTIFICATE="$TEST_ROOT/generated-certificate.pem"
+GENERATED_IDENTITY="$TEST_ROOT/generated-identity.p12"
 EXPECTED_FINGERPRINT_FILE="$TEST_ROOT/certificate-fingerprint"
+ROLLBACK_OUTPUT="$TEST_ROOT/rollback-output.log"
 mkdir -p "$FAKE_BIN" "$TEST_ROOT/tmp" "${MOCK_KEYCHAIN%/*}"
 touch "$COMMAND_LOG"
 export COMMAND_LOG MOCK_KEYCHAIN IDENTITY_MARKER ROLLBACK_MARKER
-export GENERATED_CERTIFICATE EXPECTED_FINGERPRINT_FILE
+export GENERATED_CERTIFICATE GENERATED_IDENTITY EXPECTED_FINGERPRINT_FILE
 
 cat >"$FAKE_BIN/security" <<'STUB'
 #!/usr/bin/env bash
@@ -66,11 +68,16 @@ case "${args[0]:-}" in
         ;;
     import)
         reject_forbidden_access
-        [[ ${#args[@]} -eq 6 && "${args[1]}" == */private-key.pem &&
+        [[ ${#args[@]} -eq 8 && "${args[1]}" == */identity.p12 &&
             "${args[2]}" == "-k" && "${args[3]}" == "$MOCK_KEYCHAIN" &&
-            "${args[4]}" == "-T" && "${args[5]}" == "/usr/bin/codesign" ]] ||
-            fail "导入必须仅授权 /usr/bin/codesign，且参数顺序固定"
+            "${args[4]}" == "-P" && -z "${args[5]}" &&
+            "${args[6]}" == "-T" && "${args[7]}" == "/usr/bin/codesign" ]] ||
+            fail "导入必须是无密码 PKCS#12，且仅授权 /usr/bin/codesign"
+        openssl pkcs12 -in "${args[1]}" -passin pass: -noout -nokeys
+        openssl pkcs12 -in "${args[1]}" -passin pass: -noout -nocerts
+        cp "${args[1]}" "$GENERATED_IDENTITY"
         record
+        [[ "${MOCK_FAIL_AT:-}" != "import" ]] || exit 41
         touch "$IDENTITY_MARKER"
         ;;
     add-trusted-cert)
@@ -94,6 +101,7 @@ case "${args[0]:-}" in
             "${args[4]}" == "$MOCK_KEYCHAIN" ]] ||
             fail "回滚必须仅按本次证书指纹删除身份"
         record
+        [[ "${MOCK_ROLLBACK_FAIL:-0}" != "1" ]] || exit 51
         rm -f "$IDENTITY_MARKER"
         touch "$ROLLBACK_MARKER"
         ;;
@@ -112,7 +120,7 @@ run_setup() {
 reset_case() {
     : >"$COMMAND_LOG"
     rm -f "$IDENTITY_MARKER" "$ROLLBACK_MARKER" "$GENERATED_CERTIFICATE" \
-        "$EXPECTED_FINGERPRINT_FILE"
+        "$GENERATED_IDENTITY" "$EXPECTED_FINGERPRINT_FILE" "$ROLLBACK_OUTPUT"
 }
 
 assert_command_order() {
@@ -125,25 +133,39 @@ assert_command_order() {
     }
 }
 
+assert_temporary_material_cleaned() {
+    if find "$TEST_ROOT/tmp" -type f \
+        \( -name 'private-key.pem' -o -name 'certificate.pem' -o -name 'identity.p12' \) \
+        | grep -q .; then
+        echo "临时签名材料未清理" >&2
+        exit 1
+    fi
+}
+
 reset_case
 run_setup
 assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,find-identity'
 [[ -f "$IDENTITY_MARKER" ]]
 [[ ! -e "$ROLLBACK_MARKER" ]]
-[[ -f "$GENERATED_CERTIFICATE" ]]
+[[ -f "$GENERATED_CERTIFICATE" && -f "$GENERATED_IDENTITY" ]]
+openssl pkcs12 -in "$GENERATED_IDENTITY" -passin pass: -noout -nokeys
+openssl pkcs12 -in "$GENERATED_IDENTITY" -passin pass: -noout -nocerts
 openssl x509 -in "$GENERATED_CERTIFICATE" -noout -ext basicConstraints \
     | grep -Fq 'CA:TRUE'
 openssl x509 -in "$GENERATED_CERTIFICATE" -noout -ext keyUsage \
     | grep -Fq 'Digital Signature, Certificate Sign'
 openssl x509 -in "$GENERATED_CERTIFICATE" -noout -ext extendedKeyUsage \
     | grep -Fq 'Code Signing'
+assert_temporary_material_cleaned
 
-if find "$TEST_ROOT/tmp" -type f \
-    \( -name 'private-key.pem' -o -name 'certificate.pem' \) \
-    | grep -q .; then
-    echo "临时签名材料未清理"
+reset_case
+if MOCK_FAIL_AT=import run_setup; then
+    echo "PKCS#12 导入失败时设置脚本不应成功" >&2
     exit 1
 fi
+assert_command_order 'find-identity,default-keychain,import'
+[[ ! -e "$IDENTITY_MARKER" && ! -e "$ROLLBACK_MARKER" ]]
+assert_temporary_material_cleaned
 
 reset_case
 if MOCK_FAIL_AT=trust run_setup; then
@@ -152,6 +174,7 @@ if MOCK_FAIL_AT=trust run_setup; then
 fi
 assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,delete-identity'
 [[ -f "$ROLLBACK_MARKER" && ! -e "$IDENTITY_MARKER" ]]
+assert_temporary_material_cleaned
 
 reset_case
 if MOCK_FAIL_AT=verify run_setup; then
@@ -160,8 +183,19 @@ if MOCK_FAIL_AT=verify run_setup; then
 fi
 assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,find-identity,delete-identity'
 [[ -f "$ROLLBACK_MARKER" && ! -e "$IDENTITY_MARKER" ]]
+assert_temporary_material_cleaned
+
+reset_case
+if MOCK_FAIL_AT=trust MOCK_ROLLBACK_FAIL=1 run_setup >"$ROLLBACK_OUTPUT" 2>&1; then
+    echo "回滚失败时设置脚本不应成功" >&2
+    exit 1
+fi
+assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,delete-identity'
+grep -Fq '本地签名身份回滚失败' "$ROLLBACK_OUTPUT"
+[[ -f "$IDENTITY_MARKER" && ! -e "$ROLLBACK_MARKER" ]]
+assert_temporary_material_cleaned
 
 reset_case
 MOCK_IDENTITY_EXISTS=1 run_setup
 assert_command_order 'find-identity'
-[[ ! -e "$GENERATED_CERTIFICATE" ]]
+[[ ! -e "$GENERATED_CERTIFICATE" && ! -e "$GENERATED_IDENTITY" ]]

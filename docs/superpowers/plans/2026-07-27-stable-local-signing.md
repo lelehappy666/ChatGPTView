@@ -121,7 +121,7 @@ git commit -m "构建：增加稳定签名身份解析"
 
 ---
 
-### Task 2：一次性本地签名设置
+### 任务 2：一次性本地签名设置
 
 **文件：**
 
@@ -136,7 +136,7 @@ git commit -m "构建：增加稳定签名身份解析"
 
 - [ ] **步骤1：编写失败的隔离 Shell 行为测试**
 
-`Tests/Scripts/setup-local-signing-tests.sh` 使用临时 `PATH` 提供假的 `security` 与 `openssl`，执行真实设置脚本并断言：
+`Tests/Scripts/setup-local-signing-tests.sh` 使用临时 `PATH` 提供假的 `security`，执行真实设置脚本；证书与 PKCS#12 产物由真实 `openssl` 检查，且不访问真实钥匙串。
 
 ```bash
 #!/usr/bin/env bash
@@ -244,9 +244,28 @@ if security find-identity -v -p codesigning 2>/dev/null \
     exit 0
 fi
 
-LOGIN_KEYCHAIN="$(security default-keychain -d user | tr -d '\"[:space:]')"
+LOGIN_KEYCHAIN="$(security default-keychain -d user)"
+if [[ "$LOGIN_KEYCHAIN" == \"*\" && "$LOGIN_KEYCHAIN" == *\" ]]; then
+    LOGIN_KEYCHAIN="${LOGIN_KEYCHAIN:1:${#LOGIN_KEYCHAIN}-2}"
+fi
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+IMPORTED=0
+CERTIFICATE_FINGERPRINT=""
+
+cleanup() {
+    local status=$?
+    trap - EXIT
+
+    if ((status != 0 && IMPORTED == 1 && ${#CERTIFICATE_FINGERPRINT} > 0)); then
+        if ! security delete-identity -Z "$CERTIFICATE_FINGERPRINT" -t "$LOGIN_KEYCHAIN"; then
+            echo "本地签名身份回滚失败：无法删除本次创建的身份。" >&2
+        fi
+    fi
+
+    rm -rf "$TMP"
+    exit "$status"
+}
+trap cleanup EXIT
 
 openssl req -new -newkey rsa:2048 -x509 -sha256 -days 3650 -nodes \
     -keyout "$TMP/private-key.pem" \
@@ -256,9 +275,22 @@ openssl req -new -newkey rsa:2048 -x509 -sha256 -days 3650 -nodes \
     -addext "keyUsage=critical,digitalSignature,keyCertSign" \
     -addext "extendedKeyUsage=codeSigning"
 
-security import "$TMP/private-key.pem" \
+CERTIFICATE_FINGERPRINT="$(
+    openssl x509 -in "$TMP/certificate.pem" -noout -fingerprint -sha256 \
+        | awk -F= '{ gsub(/:/, "", $2); print $2 }'
+)"
+
+openssl pkcs12 -export \
+    -inkey "$TMP/private-key.pem" \
+    -in "$TMP/certificate.pem" \
+    -out "$TMP/identity.p12" \
+    -passout pass:
+
+security import "$TMP/identity.p12" \
     -k "$LOGIN_KEYCHAIN" \
+    -P "" \
     -T /usr/bin/codesign
+IMPORTED=1
 
 security add-trusted-cert \
     -r trustRoot \
@@ -268,6 +300,7 @@ security add-trusted-cert \
 
 security find-identity -v -p codesigning "$LOGIN_KEYCHAIN" \
     | grep -F "\"$LOCAL_SIGNING_IDENTITY\""
+IMPORTED=0
 
 echo "本地签名身份创建完成：$LOCAL_SIGNING_IDENTITY"
 ```
