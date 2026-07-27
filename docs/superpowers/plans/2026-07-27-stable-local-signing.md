@@ -244,9 +244,16 @@ if security find-identity -v -p codesigning 2>/dev/null \
     exit 0
 fi
 
-LOGIN_KEYCHAIN="$(security default-keychain -d user)"
-if [[ "$LOGIN_KEYCHAIN" == \"*\" && "$LOGIN_KEYCHAIN" == *\" ]]; then
-    LOGIN_KEYCHAIN="${LOGIN_KEYCHAIN:1:${#LOGIN_KEYCHAIN}-2}"
+DEFAULT_KEYCHAIN_OUTPUT="$(security default-keychain -d user)"
+if [[ "$DEFAULT_KEYCHAIN_OUTPUT" =~ \"([^\"]*)\" ]]; then
+    LOGIN_KEYCHAIN="${BASH_REMATCH[1]}"
+else
+    echo "本地签名设置失败：无法解析登录钥匙串路径" >&2
+    exit 1
+fi
+if [[ -z "$LOGIN_KEYCHAIN" ]]; then
+    echo "本地签名设置失败：登录钥匙串路径为空" >&2
+    exit 1
 fi
 TMP="$(mktemp -d)"
 IMPORTED=0

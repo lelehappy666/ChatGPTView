@@ -16,6 +16,7 @@ IMPORT_VALIDATION_DIR="$TEST_ROOT/import-validation"
 EXPECTED_FINGERPRINT_FILE="$TEST_ROOT/certificate-fingerprint"
 ROLLBACK_OUTPUT="$TEST_ROOT/rollback-output.log"
 CERTIFICATE_ONLY_OUTPUT="$TEST_ROOT/certificate-only-output.log"
+INVALID_KEYCHAIN_OUTPUT="$TEST_ROOT/invalid-keychain-output.log"
 mkdir -p "$FAKE_BIN" "$TEST_ROOT/tmp" "${MOCK_KEYCHAIN%/*}"
 touch "$COMMAND_LOG"
 export COMMAND_LOG MOCK_KEYCHAIN IDENTITY_MARKER ROLLBACK_MARKER
@@ -68,9 +69,14 @@ case "${args[0]:-}" in
     default-keychain)
         [[ "${args[*]}" == "default-keychain -d user" ]] || fail "默认钥匙串查询"
         record
-        printf '"%s"\n' "$MOCK_KEYCHAIN"
+        case "${MOCK_DEFAULT_KEYCHAIN_OUTPUT:-valid}" in
+            unpaired) printf '    "%s\n' "$MOCK_KEYCHAIN" ;;
+            empty) printf '    ""\n' ;;
+            *) printf '    "%s"\n' "$MOCK_KEYCHAIN" ;;
+        esac
         ;;
     import)
+        record
         reject_forbidden_access
         [[ ${#args[@]} -eq 8 && "${args[1]}" == */identity.p12 &&
             "${args[2]}" == "-k" && "${args[3]}" == "$MOCK_KEYCHAIN" &&
@@ -101,7 +107,6 @@ case "${args[0]:-}" in
         [[ -n "$certificate_public_key" && "$certificate_public_key" == "$private_public_key" ]] ||
             fail "PKCS#12 证书与私钥不匹配"
         cp "${args[1]}" "$GENERATED_IDENTITY"
-        record
         [[ "${MOCK_FAIL_AT:-}" != "import" ]] || exit 41
         touch "$IDENTITY_MARKER"
         ;;
@@ -155,7 +160,7 @@ reset_case() {
     : >"$COMMAND_LOG"
     rm -f "$IDENTITY_MARKER" "$ROLLBACK_MARKER" "$GENERATED_CERTIFICATE" \
         "$GENERATED_IDENTITY" "$EXPECTED_FINGERPRINT_FILE" "$ROLLBACK_OUTPUT" \
-        "$CERTIFICATE_ONLY_OUTPUT"
+        "$CERTIFICATE_ONLY_OUTPUT" "$INVALID_KEYCHAIN_OUTPUT"
     rm -rf "$IMPORT_VALIDATION_DIR"
 }
 
@@ -216,6 +221,28 @@ if run_fake_import "$CERTIFICATE_ONLY_IDENTITY" >"$CERTIFICATE_ONLY_OUTPUT" 2>&1
     exit 1
 fi
 [[ ! -e "$IDENTITY_MARKER" && ! -e "$ROLLBACK_MARKER" ]]
+
+reset_case
+if MOCK_DEFAULT_KEYCHAIN_OUTPUT=unpaired run_setup \
+    >"$INVALID_KEYCHAIN_OUTPUT" 2>&1; then
+    echo "缺少成对引号的默认钥匙串输出不应通过" >&2
+    exit 1
+fi
+assert_command_order 'find-identity,default-keychain'
+grep -Fq '本地签名设置失败：无法解析登录钥匙串路径' \
+    "$INVALID_KEYCHAIN_OUTPUT"
+[[ ! -e "$IDENTITY_MARKER" && ! -e "$GENERATED_IDENTITY" ]]
+
+reset_case
+if MOCK_DEFAULT_KEYCHAIN_OUTPUT=empty run_setup \
+    >"$INVALID_KEYCHAIN_OUTPUT" 2>&1; then
+    echo "空默认钥匙串路径不应通过" >&2
+    exit 1
+fi
+assert_command_order 'find-identity,default-keychain'
+grep -Fq '本地签名设置失败：登录钥匙串路径为空' \
+    "$INVALID_KEYCHAIN_OUTPUT"
+[[ ! -e "$IDENTITY_MARKER" && ! -e "$GENERATED_IDENTITY" ]]
 
 reset_case
 if MOCK_FAIL_AT=import run_setup; then
