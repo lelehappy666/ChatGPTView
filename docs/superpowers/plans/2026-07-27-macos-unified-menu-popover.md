@@ -36,13 +36,14 @@
 - `Sources/CodexMonitor/MenuBar/MenuStatisticsSection.swift`：统计总览模块。
 - `Sources/CodexMonitor/MenuBar/MenuGitHubActivitySection.swift`：GitHub 状态、授权和活动模块。
 - `Tests/CodexMonitorTests/MenuPopoverLayoutTests.swift`：面板尺寸与打开刷新策略测试。
+- `Tests/CodexMonitorTests/MenuDashboardCompositionTests.swift`：模块顺序、项目图表规划和 GitHub 展示状态测试。
 
 ### 修改
 
 - `Sources/CodexMonitor/MenuBar/MenuBarController.swift`：用 `NSPopover` 替换 `NSMenu`。
 - `Sources/CodexMonitor/GitHub/GitHubActivityPage.swift`：把授权卡和 GitHub 内容组件调整为可复用的内部组件。
 - `Sources/CodexMonitor/App/AppDelegate.swift`：停止创建刘海窗口。
-- `Tests/CodexMonitorTests/AppIntegrationTests.swift`：删除刘海分页契约，增加单页和菜单栏面板契约。
+- `Tests/CodexMonitorTests/AppIntegrationTests.swift`：删除不再适用的刘海分页测试并更新版本断言。
 - `Tests/CodexMonitorTests/LayoutContractTests.swift`：改为验证菜单面板布局。
 - `Resources/Info.plist`：版本更新为 `0.1.13 (14)`。
 
@@ -157,27 +158,25 @@ git commit -m "功能：增加菜单面板布局策略"
 - 新增：`Sources/CodexMonitor/MenuBar/MenuDailyActivitySection.swift`
 - 新增：`Sources/CodexMonitor/MenuBar/MenuStatisticsSection.swift`
 - 修改：`Sources/CodexMonitor/MenuBar/MenuBarController.swift`
-- 修改：`Tests/CodexMonitorTests/AppIntegrationTests.swift`
+- 新增：`Tests/CodexMonitorTests/MenuDashboardCompositionTests.swift`
 
 **接口：**
 
 - 消费：`MonitorStore.snapshot`、`MonitorStore.refreshState`、`MonitorStore.requestRefresh()`
 - 产出：`MenuDashboardView.init(store:onClose:onQuit:)`
 - 产出：`MenuDashboardSectionCard` 和 `MenuDashboardSectionHeader`
+- 产出：`MenuDashboardComposition.sections: [MenuDashboardSection]`
 
-- [ ] **步骤 1：把单页结构契约写入集成测试**
+- [ ] **步骤 1：编写单页模块组合行为测试**
 
-新增测试读取 `MenuDashboardView.swift` 源码并验证：
+测试根视图实际消费的模块组合模型，验证顺序且不会重复：
 
 ```swift
-XCTAssertTrue(source.contains("ScrollView(.vertical"))
-XCTAssertTrue(source.contains("MenuWeeklyQuotaSection"))
-XCTAssertTrue(source.contains("MenuDailyActivitySection"))
-XCTAssertTrue(source.contains("MenuStatisticsSection"))
-XCTAssertTrue(source.contains("ProjectAnalyticsPage"))
-XCTAssertTrue(source.contains("GitHubActivityPage"))
-XCTAssertFalse(source.contains("TabView"))
-XCTAssertFalse(source.contains("DragGesture"))
+XCTAssertEqual(
+    MenuDashboardComposition.sections,
+    [.weeklyQuota, .dailyActivity, .projectAnalytics, .statistics, .github]
+)
+XCTAssertEqual(Set(MenuDashboardComposition.sections).count, 5)
 ```
 
 - [ ] **步骤 2：运行契约测试并确认失败**
@@ -185,10 +184,10 @@ XCTAssertFalse(source.contains("DragGesture"))
 运行：
 
 ```bash
-swift test --filter AppIntegrationTests
+swift test --filter MenuDashboardCompositionTests
 ```
 
-预期：找不到 `MenuDashboardView.swift`。
+预期：因 `MenuDashboardComposition` 尚未定义而编译失败。
 
 - [ ] **步骤 3：实现统一视觉组件**
 
@@ -221,14 +220,9 @@ enum MenuDashboardVisual {
 ```swift
 ScrollView(.vertical, showsIndicators: false) {
     LazyVStack(spacing: 12) {
-        MenuWeeklyQuotaSection(...)
-        MenuDailyActivitySection(snapshot: store.snapshot)
-        ProjectAnalyticsPage(
-            analytics: store.snapshot.projectAnalytics,
-            reduceMotion: reduceMotion
-        )
-        MenuStatisticsSection(snapshot: store.snapshot)
-        GitHubActivityPage(store: githubStore)
+        ForEach(MenuDashboardComposition.sections, id: \.self) { section in
+            sectionView(for: section)
+        }
     }
     .padding(20)
 }
@@ -279,7 +273,7 @@ popover.contentViewController = NSHostingController(rootView: rootView)
 运行：
 
 ```bash
-swift test --filter AppIntegrationTests
+swift test --filter MenuDashboardCompositionTests
 swift build
 ```
 
@@ -294,7 +288,7 @@ git add Sources/CodexMonitor/MenuBar/MenuDashboardView.swift \
   Sources/CodexMonitor/MenuBar/MenuDailyActivitySection.swift \
   Sources/CodexMonitor/MenuBar/MenuStatisticsSection.swift \
   Sources/CodexMonitor/MenuBar/MenuBarController.swift \
-  Tests/CodexMonitorTests/AppIntegrationTests.swift
+  Tests/CodexMonitorTests/MenuDashboardCompositionTests.swift
 git commit -m "功能：构建菜单栏单页数据总览"
 ```
 
@@ -305,24 +299,34 @@ git commit -m "功能：构建菜单栏单页数据总览"
 **文件：**
 
 - 新增：`Sources/CodexMonitor/MenuBar/MenuProjectAnalyticsSection.swift`
-- 修改：`Tests/CodexMonitorTests/AppIntegrationTests.swift`
+- 修改：`Sources/CodexMonitor/MenuBar/MenuDashboardView.swift`
+- 修改：`Tests/CodexMonitorTests/MenuDashboardCompositionTests.swift`
 
 **接口：**
 
 - 消费：`ProjectAnalyticsSnapshot.period(for:)`
 - 消费：`ProjectAnalyticsRange.sevenDays`、`.thirtyDays`、`.all`
 - 产出：`MenuProjectAnalyticsSection.init(analytics:reduceMotion:)`
+- 产出：`ProjectAnalyticsBarPlan.make(rows:) -> [ProjectAnalyticsBar]`
 
-- [ ] **步骤 1：编写范围按钮点击区域契约**
+- [ ] **步骤 1：编写项目图表规划行为测试**
 
-测试读取新文件并验证每个按钮标签在设置尺寸后声明内容形状：
+用固定项目验证图表保持排名顺序，并按最大 Token 归一化柱长：
 
 ```swift
-XCTAssertTrue(
-    source.contains(
-        ".frame(minWidth: 58, minHeight: 28)\\n" +
-        "                        .contentShape(Rectangle())"
+let rows = [
+    ProjectAnalyticsRow(
+        id: "a", name: "A", tokens: 100,
+        sessions: 2, activeDays: 1, share: 2.0 / 3.0
+    ),
+    ProjectAnalyticsRow(
+        id: "b", name: "B", tokens: 50,
+        sessions: 1, activeDays: 1, share: 1.0 / 3.0
     )
+]
+XCTAssertEqual(
+    ProjectAnalyticsBarPlan.make(rows: rows).map(\.relativeHeight),
+    [1.0, 0.5]
 )
 ```
 
@@ -331,17 +335,17 @@ XCTAssertTrue(
 运行：
 
 ```bash
-swift test --filter AppIntegrationTests/testProjectRangeButtonsUseWholeVisualFrameAsHitTarget
+swift test --filter MenuDashboardCompositionTests
 ```
 
-预期：新模块文件尚不存在或缺少指定点击区域。
+预期：因 `ProjectAnalyticsBarPlan` 尚未定义而编译失败。
 
 - [ ] **步骤 3：实现项目分析布局**
 
 - 使用本地 `@State private var selectedRange: ProjectAnalyticsRange = .sevenDays`。
 - 顶部放置“7 天”“30 天”“全部”三个按钮。
 - 按钮标签先设置 `.frame(minWidth: 58, minHeight: 28)`，再设置 `.contentShape(Rectangle())`。
-- 左侧使用 `Canvas` 绘制紧凑柱状图；鼠标位置映射到日期数据并显示悬停详情。
+- 左侧根据 `ProjectAnalyticsBarPlan` 绘制紧凑柱状图并显示鼠标悬停详情。
 - 右侧显示 Token 排名前五的项目、总量和占比。
 - 切换范围时清理悬停状态；减少动态效果开启时不使用过渡动画。
 
@@ -350,7 +354,7 @@ swift test --filter AppIntegrationTests/testProjectRangeButtonsUseWholeVisualFra
 运行：
 
 ```bash
-swift test --filter AppIntegrationTests
+swift test --filter MenuDashboardCompositionTests
 swift build
 ```
 
@@ -360,7 +364,8 @@ swift build
 
 ```bash
 git add Sources/CodexMonitor/MenuBar/MenuProjectAnalyticsSection.swift \
-  Tests/CodexMonitorTests/AppIntegrationTests.swift
+  Sources/CodexMonitor/MenuBar/MenuDashboardView.swift \
+  Tests/CodexMonitorTests/MenuDashboardCompositionTests.swift
 git commit -m "功能：增加单页项目分析模块"
 ```
 
@@ -372,7 +377,7 @@ git commit -m "功能：增加单页项目分析模块"
 
 - 新增：`Sources/CodexMonitor/MenuBar/MenuGitHubActivitySection.swift`
 - 修改：`Sources/CodexMonitor/GitHub/GitHubActivityPage.swift`
-- 修改：`Tests/CodexMonitorTests/AppIntegrationTests.swift`
+- 修改：`Tests/CodexMonitorTests/MenuDashboardCompositionTests.swift`
 
 **接口：**
 
@@ -380,17 +385,31 @@ git commit -m "功能：增加单页项目分析模块"
 - 消费：`GitHubContributionHeatmap`、`RecentRepositoryGrid`
 - 产出：可复用的 `GitHubAuthorizationCard`
 - 产出：`MenuGitHubActivitySection.init(store:)`
+- 产出：`GitHubMenuPresentation.make(state:)`
 
-- [ ] **步骤 1：编写 GitHub 延迟加载和性能契约**
+- [ ] **步骤 1：编写 GitHub 面板状态映射测试**
 
-集成测试验证：
+测试存储状态映射到授权或内容展示：
 
 ```swift
-XCTAssertTrue(rootSource.contains("githubStore.primeFromCache()"))
-XCTAssertTrue(rootSource.contains("await githubStore.loadIfNeeded()"))
-XCTAssertTrue(sectionSource.contains("GitHubContributionHeatmap"))
-XCTAssertTrue(sectionSource.contains("RecentRepositoryGrid"))
-XCTAssertFalse(sectionSource.contains(".blur("))
+XCTAssertEqual(
+    GitHubMenuPresentation.make(state: .unbound(message: nil)),
+    .authorization(message: nil)
+)
+XCTAssertEqual(
+    GitHubMenuPresentation.make(state: .loading(cached: snapshot)),
+    .content(snapshot: snapshot, statusMessage: "正在刷新")
+)
+XCTAssertEqual(
+    GitHubMenuPresentation.make(state: .loaded(snapshot)),
+    .content(snapshot: snapshot, statusMessage: nil)
+)
+XCTAssertEqual(
+    GitHubMenuPresentation.make(
+        state: .failed(message: "网络错误", cached: snapshot)
+    ),
+    .content(snapshot: snapshot, statusMessage: "网络错误")
+)
 ```
 
 - [ ] **步骤 2：运行测试并确认失败**
@@ -398,10 +417,10 @@ XCTAssertFalse(sectionSource.contains(".blur("))
 运行：
 
 ```bash
-swift test --filter AppIntegrationTests
+swift test --filter MenuDashboardCompositionTests
 ```
 
-预期：单页 GitHub 模块尚未定义。
+预期：因 `GitHubMenuPresentation` 尚未定义而编译失败。
 
 - [ ] **步骤 3：提取可复用的授权卡**
 
@@ -444,7 +463,7 @@ swift test --filter AppIntegrationTests
 
 ```bash
 swift test --filter GitHub
-swift test --filter AppIntegrationTests
+swift test --filter MenuDashboardCompositionTests
 ```
 
 预期：GitHub 状态测试和单页契约全部通过。
@@ -455,7 +474,7 @@ swift test --filter AppIntegrationTests
 git add Sources/CodexMonitor/MenuBar/MenuGitHubActivitySection.swift \
   Sources/CodexMonitor/MenuBar/MenuDashboardView.swift \
   Sources/CodexMonitor/GitHub/GitHubActivityPage.swift \
-  Tests/CodexMonitorTests/AppIntegrationTests.swift
+  Tests/CodexMonitorTests/MenuDashboardCompositionTests.swift
 git commit -m "功能：整合单页 GitHub 活跃模块"
 ```
 
@@ -475,20 +494,17 @@ git commit -m "功能：整合单页 GitHub 活跃模块"
 - `AppDelegate` 只保留 `MenuBarController` 作为数据面板入口。
 - `MenuPopoverLayout` 替代旧的 `NotchLayout` 运行时契约。
 
-- [ ] **步骤 1：编写刘海停用契约**
+- [ ] **步骤 1：用新布局行为测试替换旧刘海尺寸测试**
 
-测试读取 `AppDelegate.swift` 并验证：
-
-```swift
-XCTAssertFalse(source.contains("NotchWindowController"))
-XCTAssertTrue(source.contains("MenuBarController(store: store)"))
-```
-
-将 `LayoutContractTests` 中的刘海尺寸和分页延迟测试替换为：
+将 `LayoutContractTests` 中的刘海尺寸和分页延迟测试替换为对屏幕适配结果的断言：
 
 ```swift
-XCTAssertEqual(MenuPopoverLayout.targetSize, CGSize(width: 720, height: 840))
-XCTAssertEqual(MenuPopoverLayout.screenInset, 24)
+XCTAssertEqual(
+    MenuPopoverLayout.contentSize(
+        for: CGRect(x: 0, y: 0, width: 800, height: 700)
+    ),
+    CGSize(width: 720, height: 676)
+)
 ```
 
 - [ ] **步骤 2：运行测试并确认失败**
@@ -496,11 +512,10 @@ XCTAssertEqual(MenuPopoverLayout.screenInset, 24)
 运行：
 
 ```bash
-swift test --filter AppIntegrationTests
 swift test --filter LayoutContractTests
 ```
 
-预期：`AppDelegate` 仍创建 `NotchWindowController`，旧布局断言仍存在。
+预期：旧测试仍断言刘海尺寸，新的屏幕适配断言尚未加入。
 
 - [ ] **步骤 3：停用刘海窗口**
 
@@ -573,3 +588,11 @@ codesign --verify --deep --strict --verbose=2 "dist/Codex Monitor.app"
 ```
 
 预期：签名有效，版本为 `0.1.13`，构建号为 `14`。
+
+- [ ] **步骤 9：执行真实界面冒烟验证**
+
+- 启动新打包的应用。
+- 把鼠标移动到屏幕刘海区域，确认不再出现旧刘海分页窗口。
+- 点击菜单栏 Codex Monitor 状态区域，确认出现单页下拉面板。
+- 确认五个模块在同一纵向页面中，项目范围按钮可点击，面板外点击可关闭。
+- 关闭应用，避免影响后续用户自行验证。
