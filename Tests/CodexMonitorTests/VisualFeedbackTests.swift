@@ -146,4 +146,25 @@ final class VisualFeedbackTests: XCTestCase {
         XCTAssertEqual(idle, CGSize(width: 158, height: 9))
         XCTAssertEqual(hovered, idle)
     }
+
+    func testOldActivityCellExitDoesNotClearNewHoverSelection() {
+        let oldDay = UsageDay(
+            date: Date(timeIntervalSince1970: 0),
+            tokens: 100,
+            sessions: 1
+        )
+        let newDay = UsageDay(
+            date: Date(timeIntervalSince1970: 86_400),
+            tokens: 200,
+            sessions: 2
+        )
+
+        let selected = MenuActivityHoverSelection.next(
+            current: newDay,
+            day: oldDay,
+            isHovered: false
+        )
+
+        XCTAssertEqual(selected, newDay)
+    }
 }

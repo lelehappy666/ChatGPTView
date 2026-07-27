@@ -153,7 +153,11 @@ private struct MenuReferenceActivityHeatmap: View {
                             .frame(width: 8, height: 8)
                             .contentShape(Rectangle())
                             .onHover { hovering in
-                                hoveredDay = hovering ? day : nil
+                                hoveredDay = MenuActivityHoverSelection.next(
+                                    current: hoveredDay,
+                                    day: day,
+                                    isHovered: hovering
+                                )
                             }
                     }
                 }
@@ -169,6 +173,19 @@ private struct MenuReferenceActivityHeatmap: View {
         return MenuDashboardVisual.accent.opacity(
             0.28 + 0.72 * min(1, Double(tokens) / Double(maximumTokens))
         )
+    }
+}
+
+enum MenuActivityHoverSelection {
+    static func next(
+        current: UsageDay?,
+        day: UsageDay,
+        isHovered: Bool
+    ) -> UsageDay? {
+        if isHovered {
+            return day
+        }
+        return current == day ? nil : current
     }
 }
 

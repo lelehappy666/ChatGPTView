@@ -34,6 +34,10 @@ struct MenuPopoverHoverState {
         }
         return hasEntered ? .scheduleClose : .none
     }
+
+    mutating func reset() {
+        hasEntered = false
+    }
 }
 
 struct MenuDashboardView: View {
@@ -68,14 +72,14 @@ struct MenuDashboardView: View {
         .contentShape(Rectangle())
         .onHover(perform: handlePopoverHover)
         .onAppear {
+            resetPopoverHoverCycle()
             githubStore.primeFromCache()
         }
         .task {
             await githubStore.loadIfNeeded()
         }
         .onDisappear {
-            autoCloseTask?.cancel()
-            autoCloseTask = nil
+            resetPopoverHoverCycle()
         }
     }
 
@@ -225,5 +229,11 @@ struct MenuDashboardView: View {
                 onClose()
             }
         }
+    }
+
+    private func resetPopoverHoverCycle() {
+        autoCloseTask?.cancel()
+        autoCloseTask = nil
+        popoverHoverState.reset()
     }
 }

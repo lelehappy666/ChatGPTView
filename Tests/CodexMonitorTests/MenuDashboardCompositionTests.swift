@@ -193,6 +193,16 @@ final class MenuDashboardCompositionTests: XCTestCase {
         XCTAssertEqual(state.update(isInside: true), .cancelClose)
     }
 
+    func testPopoverAutoCloseResetStartsANewOpeningCycle() {
+        var state = MenuPopoverHoverState()
+        _ = state.update(isInside: true)
+        _ = state.update(isInside: false)
+
+        state.reset()
+
+        XCTAssertEqual(state.update(isInside: false), .none)
+    }
+
     private func makeGitHubSnapshot() -> GitHubActivitySnapshot {
         GitHubActivitySnapshot(
             username: "octocat",
