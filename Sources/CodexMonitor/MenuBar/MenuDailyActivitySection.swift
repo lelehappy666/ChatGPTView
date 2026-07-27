@@ -155,29 +155,12 @@ private struct MenuReferenceActivityHeatmap: View {
                             .onHover { hovering in
                                 hoveredDay = hovering ? day : nil
                             }
-                            .help(ActivityTooltip.text(for: day))
                     }
                 }
                 .frame(width: 158, height: 68, alignment: .leading)
 
-                if let hoveredDay {
-                    Text(ActivityTooltip.text(for: hoveredDay))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                } else {
-                    HStack(spacing: 3) {
-                        Text("少")
-                        ForEach(0..<4, id: \.self) { index in
-                            RoundedRectangle(cornerRadius: 1)
-                                .fill(MenuDashboardVisual.accent.opacity(0.25 + Double(index) * 0.22))
-                                .frame(width: 6, height: 6)
-                        }
-                        Text("多")
-                    }
-                }
+                MenuActivityHoverReadout(day: hoveredDay)
             }
-            .font(.system(size: 6.5))
-            .foregroundStyle(.secondary)
         }
     }
 
@@ -186,6 +169,43 @@ private struct MenuReferenceActivityHeatmap: View {
         return MenuDashboardVisual.accent.opacity(
             0.28 + 0.72 * min(1, Double(tokens) / Double(maximumTokens))
         )
+    }
+}
+
+struct MenuActivityHoverReadout: View {
+    let day: UsageDay?
+
+    var body: some View {
+        Group {
+            if let day {
+                Text(ActivityTooltip.text(for: day))
+            } else {
+                MenuActivityLegend()
+            }
+        }
+        .font(.system(size: 6.5))
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.5)
+        .frame(width: 158, height: 9, alignment: .leading)
+    }
+}
+
+private struct MenuActivityLegend: View {
+    var body: some View {
+        HStack(spacing: 3) {
+            Text("少")
+            ForEach(0..<4, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(
+                        MenuDashboardVisual.accent.opacity(
+                            0.25 + Double(index) * 0.22
+                        )
+                    )
+                    .frame(width: 6, height: 6)
+            }
+            Text("多")
+        }
     }
 }
 

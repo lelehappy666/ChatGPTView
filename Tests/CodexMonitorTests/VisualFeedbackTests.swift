@@ -1,3 +1,5 @@
+import AppKit
+import SwiftUI
 import XCTest
 @testable import CodexMonitor
 
@@ -125,5 +127,23 @@ final class VisualFeedbackTests: XCTestCase {
             ).map(\.tokens),
             [100, 0, 300, 0, 0, 0, 700]
         )
+    }
+
+    @MainActor
+    func testMenuActivityHoverReadoutKeepsTheSameSize() {
+        let day = UsageDay(
+            date: Date(timeIntervalSince1970: 0),
+            tokens: 100,
+            sessions: 1
+        )
+        let idle = NSHostingView(
+            rootView: MenuActivityHoverReadout(day: nil)
+        ).fittingSize
+        let hovered = NSHostingView(
+            rootView: MenuActivityHoverReadout(day: day)
+        ).fittingSize
+
+        XCTAssertEqual(idle, CGSize(width: 158, height: 9))
+        XCTAssertEqual(hovered, idle)
     }
 }
