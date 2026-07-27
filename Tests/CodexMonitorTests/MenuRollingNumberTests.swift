@@ -77,6 +77,38 @@ final class MenuRollingNumberTests: XCTestCase {
         )
     }
 
+    func testQuotaProgressStartsAtZeroAndClampsTargets() {
+        XCTAssertEqual(
+            MenuQuotaProgressAnimationPlan.initialProgress(
+                targetProgress: 0.66,
+                reduceMotion: false
+            ),
+            0
+        )
+        XCTAssertEqual(MenuQuotaProgressAnimationPlan.normalized(-0.3), 0)
+        XCTAssertEqual(MenuQuotaProgressAnimationPlan.normalized(1.4), 1)
+    }
+
+    func testReducedMotionQuotaProgressStartsAtTarget() {
+        XCTAssertEqual(
+            MenuQuotaProgressAnimationPlan.initialProgress(
+                targetProgress: 0.66,
+                reduceMotion: true
+            ),
+            0.66
+        )
+    }
+
+    func testHiddenQuotaProgressUpdateHoldsAtZero() {
+        XCTAssertEqual(
+            MenuQuotaProgressAnimationPlan.updateAction(
+                isPresented: false,
+                reduceMotion: false
+            ),
+            .holdZero
+        )
+    }
+
     func testNumberFormatsRenderIntermediateRealtimeValues() {
         XCTAssertEqual(MenuNumberFormat.integer.string(for: 44), "44")
         XCTAssertEqual(MenuNumberFormat.groupedInteger.string(for: 1_284), "1,284")
