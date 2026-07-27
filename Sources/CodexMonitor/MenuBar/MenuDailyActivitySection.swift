@@ -1,9 +1,21 @@
 import SwiftUI
 
+enum MenuDailyActivityPresentation {
+    static func todayActivity(
+        in days: [UsageDay],
+        at now: Date = .now,
+        calendar: Calendar = .current
+    ) -> UsageDay? {
+        days.first { calendar.isDate($0.date, inSameDayAs: now) }
+    }
+}
+
 struct MenuDailyActivitySection: View {
     let snapshot: MonitorSnapshot
 
-    private var today: UsageDay? { snapshot.dailyActivity.last }
+    private var today: UsageDay? {
+        MenuDailyActivityPresentation.todayActivity(in: snapshot.dailyActivity)
+    }
 
     private var averageTokens: Int {
         guard !snapshot.dailyActivity.isEmpty else { return 0 }
