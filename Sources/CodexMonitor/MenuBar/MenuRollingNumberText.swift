@@ -23,11 +23,25 @@ final class MenuNumberAnimationContext: ObservableObject {
 }
 
 enum MenuNumberAnimationPlan {
+    enum UpdateAction: Equatable {
+        case holdZero
+        case setTarget
+        case animateToTarget
+    }
+
     static func initialValue(
         targetValue: Double,
         reduceMotion: Bool
     ) -> Double {
         reduceMotion ? targetValue : 0
+    }
+
+    static func updateAction(
+        isPresented: Bool,
+        reduceMotion: Bool
+    ) -> UpdateAction {
+        guard isPresented else { return .holdZero }
+        return reduceMotion ? .setTarget : .animateToTarget
     }
 }
 
@@ -131,7 +145,11 @@ struct MenuRollingNumberText: View {
             animateToTarget()
         }
         .onChange(of: reduceMotion) {
-            replayFromZero()
+            if animationContext.isPresented {
+                replayFromZero()
+            } else {
+                stopAndReset()
+            }
         }
         .onDisappear {
             animationTask?.cancel()
@@ -178,15 +196,20 @@ struct MenuRollingNumberText: View {
             return
         }
 
-        guard !reduceMotion else {
-            setWithoutAnimation(value)
-            return
-        }
-
-        withAnimation(
-            .easeOut(duration: MenuAnimationTiming.numberDuration)
+        switch MenuNumberAnimationPlan.updateAction(
+            isPresented: animationContext.isPresented,
+            reduceMotion: reduceMotion
         ) {
-            displayedValue = value
+        case .holdZero:
+            stopAndReset()
+        case .setTarget:
+            setWithoutAnimation(value)
+        case .animateToTarget:
+            withAnimation(
+                .easeOut(duration: MenuAnimationTiming.numberDuration)
+            ) {
+                displayedValue = value
+            }
         }
     }
 

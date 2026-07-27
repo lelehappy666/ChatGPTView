@@ -50,6 +50,33 @@ final class MenuRollingNumberTests: XCTestCase {
         )
     }
 
+    func testHiddenPresentationKeepsRealtimeUpdatesAtZero() {
+        XCTAssertEqual(
+            MenuNumberAnimationPlan.updateAction(
+                isPresented: false,
+                reduceMotion: false
+            ),
+            .holdZero
+        )
+    }
+
+    func testVisiblePresentationChoosesAnimatedOrImmediateUpdate() {
+        XCTAssertEqual(
+            MenuNumberAnimationPlan.updateAction(
+                isPresented: true,
+                reduceMotion: false
+            ),
+            .animateToTarget
+        )
+        XCTAssertEqual(
+            MenuNumberAnimationPlan.updateAction(
+                isPresented: true,
+                reduceMotion: true
+            ),
+            .setTarget
+        )
+    }
+
     func testNumberFormatsRenderIntermediateRealtimeValues() {
         XCTAssertEqual(MenuNumberFormat.integer.string(for: 44), "44")
         XCTAssertEqual(MenuNumberFormat.groupedInteger.string(for: 1_284), "1,284")
