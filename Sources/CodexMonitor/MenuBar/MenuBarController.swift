@@ -1,5 +1,4 @@
 import AppKit
-import Combine
 import SwiftUI
 
 enum MenuBarLayout {
@@ -12,9 +11,8 @@ final class MenuBarController: NSObject {
     private let statusItem = NSStatusBar.system.statusItem(
         withLength: MenuBarLayout.statusItemWidth
     )
+    private let popover = NSPopover()
     private var hostingView: NSHostingView<MenuBarContentView>?
-    private var refreshItem: NSMenuItem?
-    private var cancellables: Set<AnyCancellable> = []
 
     init(store: MonitorStore) {
         self.store = store
@@ -36,43 +34,38 @@ final class MenuBarController: NSObject {
         ])
         self.hostingView = hostingView
 
-        let menu = NSMenu()
-        let refreshItem = menu.addItem(
-            withTitle: "刷新数据",
-            action: #selector(refresh),
-            keyEquivalent: "r"
+        popover.behavior = .transient
+        popover.animates = true
+        let rootView = MenuDashboardView(
+            store: store,
+            onClose: { [weak self] in self?.popover.performClose(nil) },
+            onQuit: { NSApp.terminate(nil) }
         )
-        refreshItem.target = self
-        self.refreshItem = refreshItem
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "退出 Codex Monitor", action: #selector(quit), keyEquivalent: "q").target = self
-        statusItem.menu = menu
+        popover.contentViewController = NSHostingController(rootView: rootView)
 
-        store.$refreshState
-            .sink { [weak self] state in
-                self?.updateRefreshItem(state)
-            }
-            .store(in: &cancellables)
+        button.target = self
+        button.action = #selector(togglePopover(_:))
+        button.sendAction(on: [.leftMouseUp])
     }
 
-    @objc private func refresh() {
-        store.requestRefresh()
-    }
-
-    @objc private func quit() {
-        NSApp.terminate(nil)
-    }
-
-    private func updateRefreshItem(_ state: RefreshState) {
-        switch state {
-        case .idle:
-            refreshItem?.title = "刷新数据"
-        case .refreshing:
-            refreshItem?.title = "正在刷新…"
-        case .updated:
-            refreshItem?.title = "已更新 · 再次刷新"
-        case .failed:
-            refreshItem?.title = "刷新失败 · 重试"
+    @objc private func togglePopover(_ sender: Any?) {
+        if popover.isShown {
+            popover.performClose(nil)
+            return
         }
+
+        guard let button = statusItem.button else { return }
+        let visibleFrame = button.window?.screen?.visibleFrame
+            ?? NSScreen.main?.visibleFrame
+            ?? .zero
+        popover.contentSize = MenuPopoverLayout.contentSize(for: visibleFrame)
+        if MenuPopoverOpenPolicy.shouldRefresh(isShown: popover.isShown) {
+            store.requestRefresh()
+        }
+        popover.show(
+            relativeTo: button.bounds,
+            of: button,
+            preferredEdge: .minY
+        )
     }
 }

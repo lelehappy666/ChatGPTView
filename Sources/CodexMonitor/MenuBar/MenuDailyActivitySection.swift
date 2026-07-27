@@ -1,0 +1,71 @@
+import SwiftUI
+
+struct MenuDailyActivitySection: View {
+    let snapshot: MonitorSnapshot
+
+    private var today: UsageDay? { snapshot.dailyActivity.last }
+
+    private var averageTokens: Int {
+        guard !snapshot.dailyActivity.isEmpty else { return 0 }
+        return snapshot.dailyActivity.reduce(0) { $0 + $1.tokens } / snapshot.dailyActivity.count
+    }
+
+    var body: some View {
+        MenuDashboardSectionCard {
+            VStack(alignment: .leading, spacing: 16) {
+                MenuDashboardSectionHeader(
+                    title: "每日活动",
+                    subtitle: "最近 8 周 · 每格代表一天"
+                ) {
+                    Text("56 天")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(alignment: .top, spacing: 24) {
+                    ActivityHeatmap(days: snapshot.dailyActivity)
+                        .frame(width: 142, alignment: .topLeading)
+
+                    HStack(spacing: 10) {
+                        MenuActivityMetric(
+                            value: MetricFormatter.tokens(today?.tokens ?? 0),
+                            label: "今日 Token"
+                        )
+                        MenuActivityMetric(
+                            value: "\(today?.sessions ?? 0)",
+                            label: "今日会话"
+                        )
+                        MenuActivityMetric(
+                            value: MetricFormatter.tokens(averageTokens),
+                            label: "平均/天"
+                        )
+                        MenuActivityMetric(
+                            value: "\(snapshot.currentStreakDays) 天",
+                            label: "连续使用"
+                        )
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+}
+
+private struct MenuActivityMetric: View {
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(value)
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
