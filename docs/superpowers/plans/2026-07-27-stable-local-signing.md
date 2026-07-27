@@ -132,7 +132,7 @@ git commit -m "构建：增加稳定签名身份解析"
 
 - 命令：`bash scripts/setup-local-signing.sh`
 - 已存在有效身份：直接成功退出
-- 不存在：生成不具备 CA 签发能力的叶子代码签名证书，以 PKCS#12 原子导入登录钥匙串，仅配置当前用户的代码签名信任，并清理临时文件
+- 不存在：由临时 CA 私钥签发不具备 CA 能力的叶子代码签名证书；PKCS#12 仅原子导入叶子证书与叶子私钥；仅把 CA 公钥证书以 `trustRoot + codeSign` 持久化到当前用户登录钥匙串；CA 私钥不进入钥匙串并随临时目录清理
 
 - [ ] **步骤1：编写失败的隔离 Shell 行为测试**
 
@@ -257,15 +257,23 @@ if [[ -z "$LOGIN_KEYCHAIN" ]]; then
 fi
 TMP="$(mktemp -d)"
 IMPORTED=0
-CERTIFICATE_FINGERPRINT=""
+CA_TRUSTED=0
+LEAF_FINGERPRINT=""
+CA_FINGERPRINT=""
 
 cleanup() {
     local status=$?
     trap - EXIT
 
-    if ((status != 0 && IMPORTED == 1 && ${#CERTIFICATE_FINGERPRINT} > 0)); then
-        if ! security delete-identity -Z "$CERTIFICATE_FINGERPRINT" -t "$LOGIN_KEYCHAIN"; then
-            echo "本地签名身份回滚失败：无法删除本次创建的身份。" >&2
+    if ((status != 0 && IMPORTED == 1 && ${#LEAF_FINGERPRINT} > 0)); then
+        if ! security delete-identity -Z "$LEAF_FINGERPRINT" "$LOGIN_KEYCHAIN"; then
+            echo "本地签名叶子身份回滚失败：无法删除本次创建的叶子身份。" >&2
+        fi
+    fi
+    if ((status != 0 && CA_TRUSTED == 1 && ${#CA_FINGERPRINT} > 0)); then
+        if ! security delete-certificate \
+            -Z "$CA_FINGERPRINT" -t "$LOGIN_KEYCHAIN"; then
+            echo "本地签名 CA 回滚失败：无法删除本次创建的 CA 证书和用户信任。" >&2
         fi
     fi
 
@@ -301,8 +309,12 @@ openssl x509 -req \
 
 openssl verify -CAfile "$TMP/ca-certificate.pem" "$TMP/certificate.pem"
 
-CERTIFICATE_FINGERPRINT="$(
+LEAF_FINGERPRINT="$(
     openssl x509 -in "$TMP/certificate.pem" -noout -fingerprint -sha256 \
+        | awk -F= '{ gsub(/:/, "", $2); print $2 }'
+)"
+CA_FINGERPRINT="$(
+    openssl x509 -in "$TMP/ca-certificate.pem" -noout -fingerprint -sha256 \
         | awk -F= '{ gsub(/:/, "", $2); print $2 }'
 )"
 P12_PASSWORD="$(openssl rand -hex 32)"
@@ -324,10 +336,11 @@ unset P12_PASSWORD
 IMPORTED=1
 
 security add-trusted-cert \
-    -r trustAsRoot \
+    -r trustRoot \
     -p codeSign \
     -k "$LOGIN_KEYCHAIN" \
-    "$TMP/certificate.pem"
+    "$TMP/ca-certificate.pem"
+CA_TRUSTED=1
 
 security find-identity -v -p codesigning "$LOGIN_KEYCHAIN" \
     | grep -F "\"$LOCAL_SIGNING_IDENTITY\""
@@ -561,7 +574,7 @@ xcrun swift test --disable-sandbox 2>&1 | tail -50
 bash scripts/setup-local-signing.sh
 ```
 
-预期：找到或创建 `Codex Monitor Local Signing`。macOS 可能要求一次登录钥匙串授权。
+预期：找到或创建 `Codex Monitor Local Signing`。新建时仅叶子 identity 与 CA 公钥证书进入登录钥匙串，CA 公钥证书使用当前用户的 `trustRoot + codeSign` 信任；CA 私钥始终只存在于 `umask 077` 临时目录并在退出时销毁。macOS 可能要求一次登录钥匙串授权。
 
 - [ ] **步骤3：第一次打包并保存指定要求**
 

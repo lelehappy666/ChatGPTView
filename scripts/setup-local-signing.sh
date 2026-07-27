@@ -24,15 +24,23 @@ if [[ -z "$LOGIN_KEYCHAIN" ]]; then
 fi
 TMP="$(mktemp -d)"
 IMPORTED=0
-CERTIFICATE_FINGERPRINT=""
+CA_TRUSTED=0
+LEAF_FINGERPRINT=""
+CA_FINGERPRINT=""
 
 cleanup() {
     local status=$?
     trap - EXIT
 
-    if ((status != 0 && IMPORTED == 1 && ${#CERTIFICATE_FINGERPRINT} > 0)); then
-        if ! security delete-identity -Z "$CERTIFICATE_FINGERPRINT" -t "$LOGIN_KEYCHAIN"; then
-            echo "本地签名身份回滚失败：无法删除本次创建的身份。" >&2
+    if ((status != 0 && IMPORTED == 1 && ${#LEAF_FINGERPRINT} > 0)); then
+        if ! security delete-identity -Z "$LEAF_FINGERPRINT" "$LOGIN_KEYCHAIN"; then
+            echo "本地签名叶子身份回滚失败：无法删除本次创建的叶子身份。" >&2
+        fi
+    fi
+    if ((status != 0 && CA_TRUSTED == 1 && ${#CA_FINGERPRINT} > 0)); then
+        if ! security delete-certificate \
+            -Z "$CA_FINGERPRINT" -t "$LOGIN_KEYCHAIN"; then
+            echo "本地签名 CA 回滚失败：无法删除本次创建的 CA 证书和用户信任。" >&2
         fi
     fi
 
@@ -68,8 +76,12 @@ openssl x509 -req \
 
 openssl verify -CAfile "$TMP/ca-certificate.pem" "$TMP/certificate.pem"
 
-CERTIFICATE_FINGERPRINT="$(
+LEAF_FINGERPRINT="$(
     openssl x509 -in "$TMP/certificate.pem" -noout -fingerprint -sha256 \
+        | awk -F= '{ gsub(/:/, "", $2); print $2 }'
+)"
+CA_FINGERPRINT="$(
+    openssl x509 -in "$TMP/ca-certificate.pem" -noout -fingerprint -sha256 \
         | awk -F= '{ gsub(/:/, "", $2); print $2 }'
 )"
 P12_PASSWORD="$(openssl rand -hex 32)"
@@ -91,10 +103,11 @@ unset P12_PASSWORD
 IMPORTED=1
 
 security add-trusted-cert \
-    -r trustAsRoot \
+    -r trustRoot \
     -p codeSign \
     -k "$LOGIN_KEYCHAIN" \
-    "$TMP/certificate.pem"
+    "$TMP/ca-certificate.pem"
+CA_TRUSTED=1
 
 security find-identity -v -p codesigning "$LOGIN_KEYCHAIN" \
     | grep -F "\"$LOCAL_SIGNING_IDENTITY\""

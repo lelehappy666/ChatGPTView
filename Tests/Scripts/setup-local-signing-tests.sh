@@ -8,23 +8,29 @@ FAKE_BIN="$TEST_ROOT/bin"
 COMMAND_LOG="$TEST_ROOT/commands.log"
 MOCK_KEYCHAIN="$TEST_ROOT/keychains/login keychain-db"
 IDENTITY_MARKER="$TEST_ROOT/identity-created"
+CA_TRUST_MARKER="$TEST_ROOT/ca-trust-created"
+CA_CERT_MARKER="$TEST_ROOT/ca-certificate-created"
 ROLLBACK_MARKER="$TEST_ROOT/identity-rolled-back"
+CA_ROLLBACK_MARKER="$TEST_ROOT/ca-rolled-back"
 GENERATED_CERTIFICATE="$TEST_ROOT/generated-certificate.pem"
 GENERATED_CA_CERTIFICATE="$TEST_ROOT/generated-ca-certificate.pem"
 GENERATED_IDENTITY="$TEST_ROOT/generated-identity.p12"
 GENERATED_IDENTITY_PASSWORD="$TEST_ROOT/generated-identity-password"
 CERTIFICATE_ONLY_IDENTITY="$TEST_ROOT/certificate-only/identity.p12"
 IMPORT_VALIDATION_DIR="$TEST_ROOT/import-validation"
-EXPECTED_FINGERPRINT_FILE="$TEST_ROOT/certificate-fingerprint"
+EXPECTED_LEAF_FINGERPRINT_FILE="$TEST_ROOT/leaf-certificate-fingerprint"
+EXPECTED_CA_FINGERPRINT_FILE="$TEST_ROOT/ca-certificate-fingerprint"
 ROLLBACK_OUTPUT="$TEST_ROOT/rollback-output.log"
 CERTIFICATE_ONLY_OUTPUT="$TEST_ROOT/certificate-only-output.log"
 INVALID_KEYCHAIN_OUTPUT="$TEST_ROOT/invalid-keychain-output.log"
 mkdir -p "$FAKE_BIN" "$TEST_ROOT/tmp" "${MOCK_KEYCHAIN%/*}"
 touch "$COMMAND_LOG"
-export COMMAND_LOG MOCK_KEYCHAIN IDENTITY_MARKER ROLLBACK_MARKER
+export COMMAND_LOG MOCK_KEYCHAIN IDENTITY_MARKER CA_TRUST_MARKER CA_CERT_MARKER
+export ROLLBACK_MARKER CA_ROLLBACK_MARKER
 export GENERATED_CERTIFICATE GENERATED_CA_CERTIFICATE GENERATED_IDENTITY
 export IMPORT_VALIDATION_DIR
-export GENERATED_IDENTITY_PASSWORD EXPECTED_FINGERPRINT_FILE
+export GENERATED_IDENTITY_PASSWORD EXPECTED_LEAF_FINGERPRINT_FILE
+export EXPECTED_CA_FINGERPRINT_FILE
 
 cat >"$FAKE_BIN/security" <<'STUB'
 #!/usr/bin/env bash
@@ -65,7 +71,8 @@ case "${args[0]:-}" in
         fi
         record
         if [[ "${MOCK_IDENTITY_EXISTS:-0}" == "1" ||
-            ( -f "$IDENTITY_MARKER" && "${MOCK_FAIL_AT:-}" != "verify" ) ]]; then
+            ( -f "$IDENTITY_MARKER" && -f "$CA_TRUST_MARKER" &&
+                -f "$CA_CERT_MARKER" && "${MOCK_FAIL_AT:-}" != "verify" ) ]]; then
             printf '  1) ABC "Codex Monitor Local Signing"\n'
         fi
         ;;
@@ -105,6 +112,19 @@ case "${args[0]:-}" in
         openssl pkcs12 -in "${args[1]}" -passin "pass:$identity_password" \
             -nocerts -nodes -out "$private_key_file"
         openssl pkey -in "$private_key_file" -noout
+        private_key_count="$(
+            grep -Fc -- '-----BEGIN PRIVATE KEY-----' "$private_key_file"
+        )"
+        [[ "$private_key_count" == "1" ]] ||
+            fail "PKCS#12 必须只包含一个叶子私钥"
+        all_certificates_file="$IMPORT_VALIDATION_DIR/all-certificates.pem"
+        openssl pkcs12 -in "${args[1]}" -passin "pass:$identity_password" \
+            -nokeys -out "$all_certificates_file"
+        certificate_count="$(
+            grep -Fc -- '-----BEGIN CERTIFICATE-----' "$all_certificates_file"
+        )"
+        [[ "$certificate_count" == "1" ]] ||
+            fail "PKCS#12 必须只包含一个叶子证书"
         certificate_public_key="$({
             openssl x509 -in "$certificate_file" -pubkey -noout \
                 | openssl pkey -pubin -outform DER \
@@ -118,6 +138,15 @@ case "${args[0]:-}" in
         })"
         [[ -n "$certificate_public_key" && "$certificate_public_key" == "$private_public_key" ]] ||
             fail "PKCS#12 证书与私钥不匹配"
+        ca_certificate_file="${args[1]%/*}/ca-certificate.pem"
+        ca_public_key="$({
+            openssl x509 -in "$ca_certificate_file" -pubkey -noout \
+                | openssl pkey -pubin -outform DER \
+                | openssl dgst -sha256 -r \
+                | awk '{print $1}'
+        })"
+        [[ "$private_public_key" != "$ca_public_key" ]] ||
+            fail "PKCS#12 不得包含 CA 私钥"
         cp "${args[1]}" "$GENERATED_IDENTITY"
         printf '%s' "$identity_password" >"$GENERATED_IDENTITY_PASSWORD"
         [[ "${MOCK_FAIL_AT:-}" != "import" ]] || exit 41
@@ -125,53 +154,71 @@ case "${args[0]:-}" in
         ;;
     add-trusted-cert)
         reject_forbidden_access
-        [[ "${args[*]}" != *"trustRoot"* ]] ||
-            fail "不得把临时签发 CA 持久化为 trustRoot"
         [[ ${#args[@]} -eq 8 && "${args[1]}" == "-r" &&
-            "${args[2]}" == "trustAsRoot" && "${args[3]}" == "-p" &&
+            "${args[2]}" == "trustRoot" && "${args[3]}" == "-p" &&
             "${args[4]}" == "codeSign" && "${args[5]}" == "-k" &&
-            "${args[6]}" == "$MOCK_KEYCHAIN" && "${args[7]}" == */certificate.pem ]] ||
-            fail "必须仅把非根叶子证书设为 trustAsRoot 代码签名信任"
-        certificate_constraints="$(
+            "${args[6]}" == "$MOCK_KEYCHAIN" &&
+            "${args[7]}" == */ca-certificate.pem ]] ||
+            fail "必须仅把临时 CA 根证书设为 trustRoot 代码签名信任"
+        ca_constraints="$(
             openssl x509 -in "${args[7]}" -noout -ext basicConstraints
         )"
-        grep -Fq 'CA:FALSE' <<<"$certificate_constraints" ||
-            fail "持久身份叶子证书必须明确为 CA:FALSE"
-        certificate_subject="$(openssl x509 -in "${args[7]}" -noout -subject)"
-        certificate_issuer="$(openssl x509 -in "${args[7]}" -noout -issuer)"
-        [[ "${certificate_subject#subject=}" != "${certificate_issuer#issuer=}" ]] ||
-            fail "trustAsRoot 叶子证书不得自签名"
-        ca_certificate="${args[7]%/*}/ca-certificate.pem"
-        [[ -f "$ca_certificate" ]] ||
-            fail "缺少仅用于临时签发的 CA 证书"
-        openssl verify -CAfile "$ca_certificate" "${args[7]}" >/dev/null ||
-            fail "叶子证书不是由本次临时 CA 签发"
-        ca_constraints="$(
-            openssl x509 -in "$ca_certificate" -noout -ext basicConstraints
-        )"
-        grep -Fq 'CA:TRUE' <<<"$ca_constraints" ||
-            fail "临时签发证书必须具备 CA 能力"
-        ca_key_usage="$(openssl x509 -in "$ca_certificate" -noout -ext keyUsage)"
+        grep -Eq 'CA:TRUE, *pathlen:0' <<<"$ca_constraints" ||
+            fail "持久 CA 根证书必须为 CA:TRUE,pathlen:0"
+        ca_key_usage="$(openssl x509 -in "${args[7]}" -noout -ext keyUsage)"
         grep -Fq 'Certificate Sign' <<<"$ca_key_usage" ||
-            fail "临时 CA 必须仅用于签发叶子证书"
-        cp "${args[7]}" "$GENERATED_CERTIFICATE"
-        cp "$ca_certificate" "$GENERATED_CA_CERTIFICATE"
+            fail "持久 CA 根证书必须具有证书签发用途"
+        if openssl x509 -in "${args[7]}" -noout -text | grep -Fq 'Code Signing'; then
+            fail "持久 CA 根证书不得具有代码签名用途"
+        fi
+        certificate="${args[7]%/*}/certificate.pem"
+        [[ -f "$certificate" ]] || fail "缺少由 CA 签发的叶子证书"
+        certificate_constraints="$(
+            openssl x509 -in "$certificate" -noout -ext basicConstraints
+        )"
+        grep -Fq 'CA:FALSE' <<<"$certificate_constraints" ||
+            fail "持久 identity 叶子证书必须明确为 CA:FALSE"
+        certificate_subject="$(openssl x509 -in "$certificate" -noout -subject)"
+        certificate_issuer="$(openssl x509 -in "$certificate" -noout -issuer)"
+        [[ "${certificate_subject#subject=}" != "${certificate_issuer#issuer=}" ]] ||
+            fail "叶子证书不得自签名"
+        openssl verify -CAfile "${args[7]}" "$certificate" >/dev/null ||
+            fail "叶子证书不是由本次 CA 签发"
+        cp "$certificate" "$GENERATED_CERTIFICATE"
+        cp "${args[7]}" "$GENERATED_CA_CERTIFICATE"
+        openssl x509 -in "$certificate" -noout -fingerprint -sha256 \
+            | sed -E 's/.*=//; s/://g' >"$EXPECTED_LEAF_FINGERPRINT_FILE"
         openssl x509 -in "${args[7]}" -noout -fingerprint -sha256 \
-            | sed -E 's/.*=//; s/://g' >"$EXPECTED_FINGERPRINT_FILE"
+            | sed -E 's/.*=//; s/://g' >"$EXPECTED_CA_FINGERPRINT_FILE"
         record
         [[ "${MOCK_FAIL_AT:-}" != "trust" ]] || exit 42
+        touch "$CA_TRUST_MARKER" "$CA_CERT_MARKER"
         ;;
     delete-identity)
-        [[ -s "$EXPECTED_FINGERPRINT_FILE" ]] || fail "回滚前没有本次证书指纹"
-        expected_fingerprint="$(<"$EXPECTED_FINGERPRINT_FILE")"
+        [[ -s "$EXPECTED_LEAF_FINGERPRINT_FILE" ]] ||
+            fail "叶子回滚前没有本次证书指纹"
+        expected_fingerprint="$(<"$EXPECTED_LEAF_FINGERPRINT_FILE")"
+        [[ ${#args[@]} -eq 4 && "${args[1]}" == "-Z" &&
+            "${args[2]}" == "$expected_fingerprint" &&
+            "${args[3]}" == "$MOCK_KEYCHAIN" ]] ||
+            fail "叶子回滚必须按本次指纹删除身份且不得操作信任"
+        record
+        [[ "${MOCK_LEAF_ROLLBACK_FAIL:-0}" != "1" ]] || exit 51
+        rm -f "$IDENTITY_MARKER"
+        touch "$ROLLBACK_MARKER"
+        ;;
+    delete-certificate)
+        [[ -s "$EXPECTED_CA_FINGERPRINT_FILE" ]] ||
+            fail "CA 回滚前没有本次证书指纹"
+        expected_fingerprint="$(<"$EXPECTED_CA_FINGERPRINT_FILE")"
         [[ ${#args[@]} -eq 5 && "${args[1]}" == "-Z" &&
             "${args[2]}" == "$expected_fingerprint" && "${args[3]}" == "-t" &&
             "${args[4]}" == "$MOCK_KEYCHAIN" ]] ||
-            fail "回滚必须仅按本次证书指纹删除身份"
+            fail "CA 回滚必须按本次指纹删除证书和用户信任"
         record
-        [[ "${MOCK_ROLLBACK_FAIL:-0}" != "1" ]] || exit 51
-        rm -f "$IDENTITY_MARKER"
-        touch "$ROLLBACK_MARKER"
+        [[ "${MOCK_CA_ROLLBACK_FAIL:-0}" != "1" ]] || exit 52
+        rm -f "$CA_TRUST_MARKER" "$CA_CERT_MARKER"
+        touch "$CA_ROLLBACK_MARKER"
         ;;
     *)
         fail "未知命令 ${args[0]:-}"
@@ -194,10 +241,12 @@ run_fake_import() {
 
 reset_case() {
     : >"$COMMAND_LOG"
-    rm -f "$IDENTITY_MARKER" "$ROLLBACK_MARKER" "$GENERATED_CERTIFICATE" \
+    rm -f "$IDENTITY_MARKER" "$CA_TRUST_MARKER" "$CA_CERT_MARKER" \
+        "$ROLLBACK_MARKER" "$CA_ROLLBACK_MARKER" "$GENERATED_CERTIFICATE" \
         "$GENERATED_CA_CERTIFICATE" "$GENERATED_IDENTITY" \
         "$GENERATED_IDENTITY_PASSWORD" \
-        "$EXPECTED_FINGERPRINT_FILE" "$ROLLBACK_OUTPUT" \
+        "$EXPECTED_LEAF_FINGERPRINT_FILE" "$EXPECTED_CA_FINGERPRINT_FILE" \
+        "$ROLLBACK_OUTPUT" \
         "$CERTIFICATE_ONLY_OUTPUT" "$INVALID_KEYCHAIN_OUTPUT"
     rm -rf "$IMPORT_VALIDATION_DIR"
 }
@@ -223,7 +272,8 @@ reset_case
 run_setup
 assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,find-identity'
 [[ -f "$IDENTITY_MARKER" ]]
-[[ ! -e "$ROLLBACK_MARKER" ]]
+[[ -f "$CA_TRUST_MARKER" && -f "$CA_CERT_MARKER" ]]
+[[ ! -e "$ROLLBACK_MARKER" && ! -e "$CA_ROLLBACK_MARKER" ]]
 [[ -f "$GENERATED_CERTIFICATE" && -f "$GENERATED_CA_CERTIFICATE" ]]
 [[ -f "$GENERATED_IDENTITY" ]]
 [[ -s "$GENERATED_IDENTITY_PASSWORD" ]]
@@ -306,31 +356,82 @@ assert_command_order 'find-identity,default-keychain,import'
 assert_temporary_material_cleaned
 
 reset_case
-if MOCK_FAIL_AT=trust run_setup; then
+set +e
+MOCK_FAIL_AT=trust run_setup
+trust_status=$?
+set -e
+if ((trust_status == 0)); then
     echo "信任失败时设置脚本不应成功" >&2
     exit 1
 fi
+[[ "$trust_status" == "42" ]] || {
+    echo "信任失败的原始状态未保留：$trust_status" >&2
+    exit 1
+}
 assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,delete-identity'
 [[ -f "$ROLLBACK_MARKER" && ! -e "$IDENTITY_MARKER" ]]
+[[ ! -e "$CA_TRUST_MARKER" && ! -e "$CA_CERT_MARKER" ]]
 assert_temporary_material_cleaned
 
 reset_case
-if MOCK_FAIL_AT=verify run_setup; then
+set +e
+MOCK_FAIL_AT=verify run_setup
+verify_status=$?
+set -e
+if ((verify_status == 0)); then
     echo "最终身份校验失败时设置脚本不应成功" >&2
     exit 1
 fi
-assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,find-identity,delete-identity'
+[[ "$verify_status" == "1" ]] || {
+    echo "最终校验失败的原始状态未保留：$verify_status" >&2
+    exit 1
+}
+assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,find-identity,delete-identity,delete-certificate'
 [[ -f "$ROLLBACK_MARKER" && ! -e "$IDENTITY_MARKER" ]]
+[[ -f "$CA_ROLLBACK_MARKER" ]]
+[[ ! -e "$CA_TRUST_MARKER" && ! -e "$CA_CERT_MARKER" ]]
 assert_temporary_material_cleaned
 
 reset_case
-if MOCK_FAIL_AT=trust MOCK_ROLLBACK_FAIL=1 run_setup >"$ROLLBACK_OUTPUT" 2>&1; then
-    echo "回滚失败时设置脚本不应成功" >&2
+set +e
+MOCK_FAIL_AT=verify MOCK_LEAF_ROLLBACK_FAIL=1 run_setup \
+    >"$ROLLBACK_OUTPUT" 2>&1
+leaf_rollback_status=$?
+set -e
+if ((leaf_rollback_status == 0)); then
+    echo "叶子回滚失败时设置脚本不应成功" >&2
     exit 1
 fi
-assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,delete-identity'
-grep -Fq '本地签名身份回滚失败' "$ROLLBACK_OUTPUT"
+[[ "$leaf_rollback_status" == "1" ]] || {
+    echo "叶子回滚失败覆盖了原始状态：$leaf_rollback_status" >&2
+    exit 1
+}
+assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,find-identity,delete-identity,delete-certificate'
+grep -Fq '本地签名叶子身份回滚失败' "$ROLLBACK_OUTPUT"
 [[ -f "$IDENTITY_MARKER" && ! -e "$ROLLBACK_MARKER" ]]
+[[ -f "$CA_ROLLBACK_MARKER" ]]
+[[ ! -e "$CA_TRUST_MARKER" && ! -e "$CA_CERT_MARKER" ]]
+assert_temporary_material_cleaned
+
+reset_case
+set +e
+MOCK_FAIL_AT=verify MOCK_CA_ROLLBACK_FAIL=1 run_setup \
+    >"$ROLLBACK_OUTPUT" 2>&1
+ca_rollback_status=$?
+set -e
+if ((ca_rollback_status == 0)); then
+    echo "CA 回滚失败时设置脚本不应成功" >&2
+    exit 1
+fi
+[[ "$ca_rollback_status" == "1" ]] || {
+    echo "CA 回滚失败覆盖了原始状态：$ca_rollback_status" >&2
+    exit 1
+}
+assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,find-identity,delete-identity,delete-certificate'
+grep -Fq '本地签名 CA 回滚失败' "$ROLLBACK_OUTPUT"
+[[ -f "$ROLLBACK_MARKER" && ! -e "$IDENTITY_MARKER" ]]
+[[ ! -e "$CA_ROLLBACK_MARKER" ]]
+[[ -f "$CA_TRUST_MARKER" && -f "$CA_CERT_MARKER" ]]
 assert_temporary_material_cleaned
 
 reset_case
