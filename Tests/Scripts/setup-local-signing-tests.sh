@@ -123,13 +123,18 @@ case "${args[0]:-}" in
         ;;
     add-trusted-cert)
         reject_forbidden_access
-        [[ "${args[*]}" != *"trustRoot"* ]] ||
-            fail "不得将本地代码签名证书设为持久信任根"
+        [[ "${args[*]}" != *"trustAsRoot"* ]] ||
+            fail "自签名证书不得使用仅适用于非根证书的 trustAsRoot"
         [[ ${#args[@]} -eq 8 && "${args[1]}" == "-r" &&
-            "${args[2]}" == "trustAsRoot" && "${args[3]}" == "-p" &&
+            "${args[2]}" == "trustRoot" && "${args[3]}" == "-p" &&
             "${args[4]}" == "codeSign" && "${args[5]}" == "-k" &&
             "${args[6]}" == "$MOCK_KEYCHAIN" && "${args[7]}" == */certificate.pem ]] ||
-            fail "必须仅为登录钥匙串添加 trustAsRoot 代码签名信任"
+            fail "必须仅为登录钥匙串添加 trustRoot 代码签名策略信任"
+        certificate_constraints="$(
+            openssl x509 -in "${args[7]}" -noout -ext basicConstraints
+        )"
+        grep -Fq 'CA:FALSE' <<<"$certificate_constraints" ||
+            fail "trustRoot 证书必须明确为 CA:FALSE"
         cp "${args[7]}" "$GENERATED_CERTIFICATE"
         openssl x509 -in "${args[7]}" -noout -fingerprint -sha256 \
             | sed -E 's/.*=//; s/://g' >"$EXPECTED_FINGERPRINT_FILE"

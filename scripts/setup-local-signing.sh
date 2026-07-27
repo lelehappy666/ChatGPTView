@@ -72,7 +72,7 @@ unset P12_PASSWORD
 IMPORTED=1
 
 security add-trusted-cert \
-    -r trustAsRoot \
+    -r trustRoot \
     -p codeSign \
     -k "$LOGIN_KEYCHAIN" \
     "$TMP/certificate.pem"
