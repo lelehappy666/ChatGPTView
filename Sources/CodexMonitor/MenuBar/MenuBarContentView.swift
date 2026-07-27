@@ -47,10 +47,10 @@ struct MenuBarContentView: View {
     }
 
     private var weeklyText: String {
-        guard let remaining = QuotaFreshnessPolicy.visibleRemainingPercent(
+        guard let remaining = QuotaFreshnessPolicy.displayState(
             for: store.snapshot.weeklyQuota,
             at: now
-        ) else {
+        ).remainingPercent else {
             return "Week —"
         }
         return "Week \(Int(remaining.rounded()))%"

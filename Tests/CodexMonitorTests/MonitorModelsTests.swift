@@ -98,4 +98,41 @@ final class MonitorModelsTests: XCTestCase {
             34
         )
     }
+
+    func testQuotaDisplayStateKeepsLastKnownValueAfterFreshWindow() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let quota = WeeklyQuota(
+            remainingPercent: 77,
+            resetsAt: now.addingTimeInterval(6 * 86_400),
+            updatedAt: now.addingTimeInterval(-2_600)
+        )
+
+        XCTAssertEqual(
+            QuotaFreshnessPolicy.displayState(for: quota, at: now),
+            .lastKnown(remainingPercent: 77)
+        )
+    }
+
+    func testQuotaDisplayStateDistinguishesMissingAndFreshValues() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+
+        XCTAssertEqual(
+            QuotaFreshnessPolicy.displayState(
+                for: WeeklyQuota(remainingPercent: nil, resetsAt: nil),
+                at: now
+            ),
+            .unavailable
+        )
+        XCTAssertEqual(
+            QuotaFreshnessPolicy.displayState(
+                for: WeeklyQuota(
+                    remainingPercent: 76,
+                    resetsAt: nil,
+                    updatedAt: now.addingTimeInterval(-60)
+                ),
+                at: now
+            ),
+            .fresh(remainingPercent: 76)
+        )
+    }
 }

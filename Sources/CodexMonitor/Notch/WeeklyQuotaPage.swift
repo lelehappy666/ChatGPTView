@@ -16,17 +16,18 @@ struct WeeklyQuotaPage: View {
         in: .common
     ).autoconnect()
 
-    private var remaining: Double? {
-        QuotaFreshnessPolicy.visibleRemainingPercent(
+    private var quotaState: QuotaDisplayState {
+        QuotaFreshnessPolicy.displayState(
             for: snapshot.weeklyQuota,
             at: now
         )
     }
+    private var remaining: Double? { quotaState.remainingPercent }
     private var presentation: QuotaRefreshPresentation {
         .make(
             refreshState: refreshState,
             hasQuota: snapshot.weeklyQuota.remainingPercent != nil,
-            isFresh: remaining != nil
+            isFresh: quotaState.isFresh
         )
     }
     private var used: Double { max(0, min(100, 100 - (remaining ?? 100))) }

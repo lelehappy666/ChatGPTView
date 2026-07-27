@@ -56,13 +56,14 @@ final class MenuDashboardCompositionTests: XCTestCase {
         XCTAssertEqual(presentation.usedText, "66%")
         XCTAssertEqual(presentation.usedFraction, 0.66)
         XCTAssertEqual(presentation.resetText, "2 天 3 小时")
+        XCTAssertTrue(presentation.isFresh)
     }
 
-    func testWeeklyQuotaPresentationHidesExpiredQuotaAndOldResetCountdown() {
+    func testWeeklyQuotaPresentationKeepsLastKnownQuotaWithoutClaimingFreshness() {
         let now = Date(timeIntervalSince1970: 1_000_000)
         let presentation = MenuWeeklyQuotaPresentation.make(
             quota: WeeklyQuota(
-                remainingPercent: 34,
+                remainingPercent: 77,
                 resetsAt: now.addingTimeInterval(2 * 86_400),
                 updatedAt: now.addingTimeInterval(
                     -QuotaFreshnessPolicy.freshDuration - 1
@@ -71,11 +72,12 @@ final class MenuDashboardCompositionTests: XCTestCase {
             now: now
         )
 
-        XCTAssertEqual(presentation.remainingText, "—")
-        XCTAssertFalse(presentation.showsRemainingUnit)
-        XCTAssertEqual(presentation.usedText, "—")
-        XCTAssertNil(presentation.usedFraction)
-        XCTAssertEqual(presentation.resetText, "—")
+        XCTAssertEqual(presentation.remainingText, "77")
+        XCTAssertTrue(presentation.showsRemainingUnit)
+        XCTAssertEqual(presentation.usedText, "23%")
+        XCTAssertEqual(presentation.usedFraction, 0.23)
+        XCTAssertEqual(presentation.resetText, "2 天 0 小时")
+        XCTAssertFalse(presentation.isFresh)
     }
 
     func testWeeklyQuotaPresentationHidesMissingQuotaAndResetCountdown() {
@@ -94,6 +96,7 @@ final class MenuDashboardCompositionTests: XCTestCase {
         XCTAssertEqual(presentation.usedText, "—")
         XCTAssertNil(presentation.usedFraction)
         XCTAssertEqual(presentation.resetText, "—")
+        XCTAssertFalse(presentation.isFresh)
     }
 
     func testLocalUsagePresentationShowsEmptyStateWithoutScannedData() {

@@ -16,6 +16,28 @@ struct WeeklyQuota: Equatable, Sendable {
     }
 }
 
+enum QuotaDisplayState: Equatable {
+    case unavailable
+    case fresh(remainingPercent: Double)
+    case lastKnown(remainingPercent: Double)
+
+    var remainingPercent: Double? {
+        switch self {
+        case .unavailable:
+            nil
+        case .fresh(let value), .lastKnown(let value):
+            value
+        }
+    }
+
+    var isFresh: Bool {
+        if case .fresh = self {
+            return true
+        }
+        return false
+    }
+}
+
 enum QuotaFreshnessPolicy {
     static let freshDuration: TimeInterval = 300
     static let futureTolerance: TimeInterval = 60
@@ -34,6 +56,19 @@ enum QuotaFreshnessPolicy {
             return nil
         }
         return remainingPercent
+    }
+
+    static func displayState(
+        for quota: WeeklyQuota,
+        at now: Date = .now
+    ) -> QuotaDisplayState {
+        guard let remainingPercent = quota.remainingPercent else {
+            return .unavailable
+        }
+        if visibleRemainingPercent(for: quota, at: now) != nil {
+            return .fresh(remainingPercent: remainingPercent)
+        }
+        return .lastKnown(remainingPercent: remainingPercent)
     }
 }
 

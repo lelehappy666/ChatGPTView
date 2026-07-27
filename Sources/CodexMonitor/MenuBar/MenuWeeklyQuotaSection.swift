@@ -7,18 +7,18 @@ struct MenuWeeklyQuotaPresentation: Equatable {
     let usedText: String
     let usedFraction: Double?
     let resetText: String
+    let isFresh: Bool
 
     static func make(quota: WeeklyQuota, now: Date) -> Self {
-        guard let remaining = QuotaFreshnessPolicy.visibleRemainingPercent(
-            for: quota,
-            at: now
-        ) else {
+        let state = QuotaFreshnessPolicy.displayState(for: quota, at: now)
+        guard let remaining = state.remainingPercent else {
             return Self(
                 remainingText: "—",
                 showsRemainingUnit: false,
                 usedText: "—",
                 usedFraction: nil,
-                resetText: "—"
+                resetText: "—",
+                isFresh: false
             )
         }
 
@@ -38,7 +38,8 @@ struct MenuWeeklyQuotaPresentation: Equatable {
             showsRemainingUnit: true,
             usedText: "\(Int(usedPercent.rounded()))%",
             usedFraction: usedPercent / 100,
-            resetText: resetText
+            resetText: resetText,
+            isFresh: state.isFresh
         )
     }
 }
@@ -67,7 +68,7 @@ struct MenuWeeklyQuotaSection: View {
         .make(
             refreshState: refreshState,
             hasQuota: snapshot.weeklyQuota.remainingPercent != nil,
-            isFresh: quotaPresentation.usedFraction != nil
+            isFresh: quotaPresentation.isFresh
         )
     }
 
