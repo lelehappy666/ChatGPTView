@@ -107,11 +107,13 @@ case "${args[0]:-}" in
         ;;
     add-trusted-cert)
         reject_forbidden_access
+        [[ "${args[*]}" != *"trustRoot"* ]] ||
+            fail "不得将本地代码签名证书设为持久信任根"
         [[ ${#args[@]} -eq 8 && "${args[1]}" == "-r" &&
-            "${args[2]}" == "trustRoot" && "${args[3]}" == "-p" &&
+            "${args[2]}" == "trustAsRoot" && "${args[3]}" == "-p" &&
             "${args[4]}" == "codeSign" && "${args[5]}" == "-k" &&
             "${args[6]}" == "$MOCK_KEYCHAIN" && "${args[7]}" == */certificate.pem ]] ||
-            fail "代码签名信任参数或顺序错误"
+            fail "必须仅为登录钥匙串添加 trustAsRoot 代码签名信任"
         cp "${args[7]}" "$GENERATED_CERTIFICATE"
         openssl x509 -in "${args[7]}" -noout -fingerprint -sha256 \
             | sed -E 's/.*=//; s/://g' >"$EXPECTED_FINGERPRINT_FILE"
@@ -184,10 +186,20 @@ assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,fin
 [[ -f "$GENERATED_CERTIFICATE" && -f "$GENERATED_IDENTITY" ]]
 openssl pkcs12 -in "$GENERATED_IDENTITY" -passin pass: -noout -nokeys
 openssl pkcs12 -in "$GENERATED_IDENTITY" -passin pass: -noout -nocerts
-openssl x509 -in "$GENERATED_CERTIFICATE" -noout -ext basicConstraints \
-    | grep -Fq 'CA:TRUE'
-openssl x509 -in "$GENERATED_CERTIFICATE" -noout -ext keyUsage \
-    | grep -Fq 'Digital Signature, Certificate Sign'
+basic_constraints="$(
+    openssl x509 -in "$GENERATED_CERTIFICATE" -noout -ext basicConstraints
+)"
+grep -Fq 'CA:FALSE' <<<"$basic_constraints"
+if grep -Fq 'CA:TRUE' <<<"$basic_constraints"; then
+    echo "本地代码签名证书不应具有 CA 签发能力" >&2
+    exit 1
+fi
+key_usage="$(openssl x509 -in "$GENERATED_CERTIFICATE" -noout -ext keyUsage)"
+grep -Fq 'Digital Signature' <<<"$key_usage"
+if grep -Fq 'Certificate Sign' <<<"$key_usage"; then
+    echo "本地代码签名证书不应具有证书签发用途" >&2
+    exit 1
+fi
 openssl x509 -in "$GENERATED_CERTIFICATE" -noout -ext extendedKeyUsage \
     | grep -Fq 'Code Signing'
 assert_temporary_material_cleaned

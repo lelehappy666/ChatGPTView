@@ -38,8 +38,8 @@ openssl req -new -newkey rsa:2048 -x509 -sha256 -days 3650 -nodes \
     -keyout "$TMP/private-key.pem" \
     -out "$TMP/certificate.pem" \
     -subj "/CN=$LOCAL_SIGNING_IDENTITY/O=Codex Monitor Local Development/" \
-    -addext "basicConstraints=critical,CA:TRUE" \
-    -addext "keyUsage=critical,digitalSignature,keyCertSign" \
+    -addext "basicConstraints=critical,CA:FALSE" \
+    -addext "keyUsage=critical,digitalSignature" \
     -addext "extendedKeyUsage=codeSigning"
 
 CERTIFICATE_FINGERPRINT="$(
@@ -60,7 +60,7 @@ security import "$TMP/identity.p12" \
 IMPORTED=1
 
 security add-trusted-cert \
-    -r trustRoot \
+    -r trustAsRoot \
     -p codeSign \
     -k "$LOGIN_KEYCHAIN" \
     "$TMP/certificate.pem"
