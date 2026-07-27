@@ -3,9 +3,12 @@ import SwiftUI
 
 struct WeeklyQuotaPage: View {
     let snapshot: MonitorSnapshot
+    let refreshState: RefreshState
+    let onRefresh: () -> Void
 
     @State private var now = Date.now
     @State private var hoveredRecentDay: UsageDay?
+    @State private var isRefreshHovered = false
 
     private let freshnessTimer = Timer.publish(
         every: 30,
@@ -19,6 +22,13 @@ struct WeeklyQuotaPage: View {
             at: now
         )
     }
+    private var presentation: QuotaRefreshPresentation {
+        .make(
+            refreshState: refreshState,
+            hasQuota: snapshot.weeklyQuota.remainingPercent != nil,
+            isFresh: remaining != nil
+        )
+    }
     private var used: Double { max(0, min(100, 100 - (remaining ?? 100))) }
     private var recentDays: [UsageDay] {
         Array(ActivityGrid.days(from: snapshot.dailyActivity).suffix(7))
@@ -27,7 +37,38 @@ struct WeeklyQuotaPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            DashboardHeader(title: "本周额度", subtitle: "Weekly usage limit", trailing: syncText)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("本周额度").font(.system(size: 14, weight: .semibold))
+                    Text("Weekly usage limit").font(.system(size: 9)).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button(action: onRefresh) {
+                    HStack(spacing: 4) {
+                        if presentation.showsProgress {
+                            ProgressView()
+                                .controlSize(.mini)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        Text(presentation.title)
+                    }
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color(red: 0.49, green: 0.90, blue: 0.73))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!presentation.isEnabled)
+                .background(
+                    Capsule()
+                        .fill(Color.white.opacity(isRefreshHovered ? 0.08 : 0))
+                )
+                .onHover { isRefreshHovered = $0 }
+                .help("立即重新扫描 Codex 本地额度数据")
+            }
+            .frame(height: 32)
 
             HStack(spacing: 10) {
                 DashboardCard {
@@ -133,13 +174,6 @@ struct WeeklyQuotaPage: View {
         .onReceive(freshnessTimer) { now in
             self.now = now
         }
-    }
-
-    private var syncText: String {
-        if snapshot.weeklyQuota.remainingPercent == nil {
-            return "暂不可用"
-        }
-        return remaining == nil ? "等待 Codex 更新" : "● 已同步"
     }
 
     private var resetText: String {

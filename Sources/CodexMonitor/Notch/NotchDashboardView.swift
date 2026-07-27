@@ -2,7 +2,9 @@ import SwiftUI
 
 struct NotchDashboardView: View {
     let snapshot: MonitorSnapshot
+    let refreshState: RefreshState
     let reduceMotion: Bool
+    let onRefreshQuota: () -> Void
 
     @State private var page = 0
     @State private var transitionForward = true
@@ -83,7 +85,11 @@ struct NotchDashboardView: View {
     private var currentPage: some View {
         switch page {
         case 0:
-            WeeklyQuotaPage(snapshot: snapshot)
+            WeeklyQuotaPage(
+                snapshot: snapshot,
+                refreshState: refreshState,
+                onRefresh: onRefreshQuota
+            )
         case 1:
             DailyActivityPage(snapshot: snapshot)
         case 2:

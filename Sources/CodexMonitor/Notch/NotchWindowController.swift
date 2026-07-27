@@ -164,7 +164,12 @@ private struct NotchRootView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        NotchDashboardView(snapshot: store.snapshot, reduceMotion: reduceMotion)
+        NotchDashboardView(
+            snapshot: store.snapshot,
+            refreshState: store.refreshState,
+            reduceMotion: reduceMotion,
+            onRefreshQuota: store.requestRefresh
+        )
     }
 }
 
