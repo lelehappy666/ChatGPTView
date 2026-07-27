@@ -11,12 +11,16 @@ IDENTITY_MARKER="$TEST_ROOT/identity-created"
 ROLLBACK_MARKER="$TEST_ROOT/identity-rolled-back"
 GENERATED_CERTIFICATE="$TEST_ROOT/generated-certificate.pem"
 GENERATED_IDENTITY="$TEST_ROOT/generated-identity.p12"
+CERTIFICATE_ONLY_IDENTITY="$TEST_ROOT/certificate-only/identity.p12"
+IMPORT_VALIDATION_DIR="$TEST_ROOT/import-validation"
 EXPECTED_FINGERPRINT_FILE="$TEST_ROOT/certificate-fingerprint"
 ROLLBACK_OUTPUT="$TEST_ROOT/rollback-output.log"
+CERTIFICATE_ONLY_OUTPUT="$TEST_ROOT/certificate-only-output.log"
 mkdir -p "$FAKE_BIN" "$TEST_ROOT/tmp" "${MOCK_KEYCHAIN%/*}"
 touch "$COMMAND_LOG"
 export COMMAND_LOG MOCK_KEYCHAIN IDENTITY_MARKER ROLLBACK_MARKER
-export GENERATED_CERTIFICATE GENERATED_IDENTITY EXPECTED_FINGERPRINT_FILE
+export GENERATED_CERTIFICATE GENERATED_IDENTITY IMPORT_VALIDATION_DIR
+export EXPECTED_FINGERPRINT_FILE
 
 cat >"$FAKE_BIN/security" <<'STUB'
 #!/usr/bin/env bash
@@ -73,8 +77,29 @@ case "${args[0]:-}" in
             "${args[4]}" == "-P" && -z "${args[5]}" &&
             "${args[6]}" == "-T" && "${args[7]}" == "/usr/bin/codesign" ]] ||
             fail "导入必须是无密码 PKCS#12，且仅授权 /usr/bin/codesign"
-        openssl pkcs12 -in "${args[1]}" -passin pass: -noout -nokeys
-        openssl pkcs12 -in "${args[1]}" -passin pass: -noout -nocerts
+        rm -rf "$IMPORT_VALIDATION_DIR"
+        mkdir -p "$IMPORT_VALIDATION_DIR"
+        certificate_file="$IMPORT_VALIDATION_DIR/certificate.pem"
+        private_key_file="$IMPORT_VALIDATION_DIR/private-key.pem"
+        openssl pkcs12 -in "${args[1]}" -passin pass: \
+            -clcerts -nokeys -out "$certificate_file"
+        openssl x509 -in "$certificate_file" -noout
+        openssl pkcs12 -in "${args[1]}" -passin pass: \
+            -nocerts -nodes -out "$private_key_file"
+        openssl pkey -in "$private_key_file" -noout
+        certificate_public_key="$({
+            openssl x509 -in "$certificate_file" -pubkey -noout \
+                | openssl pkey -pubin -outform DER \
+                | openssl dgst -sha256 -r \
+                | awk '{print $1}'
+        })"
+        private_public_key="$({
+            openssl pkey -in "$private_key_file" -pubout -outform DER \
+                | openssl dgst -sha256 -r \
+                | awk '{print $1}'
+        })"
+        [[ -n "$certificate_public_key" && "$certificate_public_key" == "$private_public_key" ]] ||
+            fail "PKCS#12 证书与私钥不匹配"
         cp "${args[1]}" "$GENERATED_IDENTITY"
         record
         [[ "${MOCK_FAIL_AT:-}" != "import" ]] || exit 41
@@ -117,10 +142,19 @@ run_setup() {
         bash "$ROOT/scripts/setup-local-signing.sh"
 }
 
+run_fake_import() {
+    PATH="$FAKE_BIN:$PATH" security import "$1" \
+        -k "$MOCK_KEYCHAIN" \
+        -P "" \
+        -T /usr/bin/codesign
+}
+
 reset_case() {
     : >"$COMMAND_LOG"
     rm -f "$IDENTITY_MARKER" "$ROLLBACK_MARKER" "$GENERATED_CERTIFICATE" \
-        "$GENERATED_IDENTITY" "$EXPECTED_FINGERPRINT_FILE" "$ROLLBACK_OUTPUT"
+        "$GENERATED_IDENTITY" "$EXPECTED_FINGERPRINT_FILE" "$ROLLBACK_OUTPUT" \
+        "$CERTIFICATE_ONLY_OUTPUT"
+    rm -rf "$IMPORT_VALIDATION_DIR"
 }
 
 assert_command_order() {
@@ -157,6 +191,19 @@ openssl x509 -in "$GENERATED_CERTIFICATE" -noout -ext keyUsage \
 openssl x509 -in "$GENERATED_CERTIFICATE" -noout -ext extendedKeyUsage \
     | grep -Fq 'Code Signing'
 assert_temporary_material_cleaned
+
+mkdir -p "${CERTIFICATE_ONLY_IDENTITY%/*}"
+openssl pkcs12 -export \
+    -nokeys \
+    -in "$GENERATED_CERTIFICATE" \
+    -out "$CERTIFICATE_ONLY_IDENTITY" \
+    -passout pass:
+reset_case
+if run_fake_import "$CERTIFICATE_ONLY_IDENTITY" >"$CERTIFICATE_ONLY_OUTPUT" 2>&1; then
+    echo "证书-only PKCS#12 不应建立完整身份" >&2
+    exit 1
+fi
+[[ ! -e "$IDENTITY_MARKER" && ! -e "$ROLLBACK_MARKER" ]]
 
 reset_case
 if MOCK_FAIL_AT=import run_setup; then
