@@ -9,13 +9,13 @@ enum MenuDashboardSection: Hashable {
 }
 
 enum MenuDashboardComposition {
-    static let rows: [[MenuDashboardSection]] = [
-        [.weeklyQuota, .dailyActivity],
-        [.projectAnalytics],
-        [.statistics, .github]
+    static let sections: [MenuDashboardSection] = [
+        .weeklyQuota,
+        .dailyActivity,
+        .projectAnalytics,
+        .statistics,
+        .github
     ]
-
-    static let sections = rows.flatMap { $0 }
 }
 
 struct MenuDashboardView: View {
@@ -27,46 +27,20 @@ struct MenuDashboardView: View {
     @StateObject private var githubStore = GitHubActivityStore()
 
     var body: some View {
-        VStack(spacing: 0) {
-            dashboardHeader
-                .frame(height: 44)
-
-            GeometryReader { proxy in
-                let horizontalPadding: CGFloat = 12
-                let verticalPadding: CGFloat = 12
-                let innerWidth = max(0, proxy.size.width - horizontalPadding * 2)
-                let plan = MenuDashboardLayoutPlan.make(
-                    contentHeight: max(0, proxy.size.height - verticalPadding * 2)
+        GeometryReader { proxy in
+            let scale = MenuPopoverLayout.scaleFactor(for: proxy.size)
+            referenceCanvas
+                .scaleEffect(scale, anchor: .topLeading)
+                .frame(
+                    width: MenuPopoverLayout.targetSize.width * scale,
+                    height: MenuPopoverLayout.targetSize.height * scale,
+                    alignment: .topLeading
                 )
-
-                VStack(spacing: plan.rowSpacing) {
-                    HStack(spacing: plan.rowSpacing) {
-                        sectionView(for: .weeklyQuota)
-                        sectionView(for: .dailyActivity)
-                    }
-                    .frame(height: plan.firstRowHeight)
-
-                    sectionView(for: .projectAnalytics)
-                        .frame(height: plan.projectRowHeight)
-
-                    HStack(spacing: plan.rowSpacing) {
-                        sectionView(for: .statistics)
-                            .frame(
-                                width: max(
-                                    0,
-                                    (innerWidth - plan.rowSpacing) * 0.36
-                                )
-                            )
-                        sectionView(for: .github)
-                    }
-                    .frame(height: plan.thirdRowHeight)
-                }
-                .padding(.horizontal, horizontalPadding)
-                .padding(.vertical, verticalPadding)
-            }
-
-            dashboardFooter
-                .frame(height: 28)
+                .frame(
+                    maxWidth: .infinity,
+                    maxHeight: .infinity,
+                    alignment: .topLeading
+                )
         }
         .foregroundStyle(Color.white)
         .environment(\.colorScheme, .dark)
@@ -79,55 +53,98 @@ struct MenuDashboardView: View {
         }
     }
 
-    private var dashboardHeader: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Codex Monitor")
-                    .font(.system(size: 16, weight: .bold))
-                Text(refreshStatusText)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Button(action: store.requestRefresh) {
-                Label("刷新", systemImage: "arrow.clockwise")
-                    .font(.system(size: 11, weight: .semibold))
-                    .padding(.horizontal, 10)
-                    .frame(height: 28)
-                    .contentShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            .background(Color.white.opacity(0.075), in: Capsule())
-            .help("刷新数据 ⌘R")
+    private var referenceCanvas: some View {
+        let plan = MenuReferenceLayoutPlan()
+        return VStack(spacing: plan.spacing) {
+            dashboardHeader.frame(height: plan.headerHeight)
+            sectionView(for: .weeklyQuota).frame(height: plan.quotaHeight)
+            sectionView(for: .dailyActivity).frame(height: plan.dailyHeight)
+            sectionView(for: .projectAnalytics).frame(height: plan.projectHeight)
+            sectionView(for: .statistics).frame(height: plan.statisticsHeight)
+            sectionView(for: .github).frame(height: plan.githubHeight)
+            dashboardFooter.frame(height: plan.footerHeight)
+        }
+        .padding(plan.padding)
+        .frame(
+            width: MenuPopoverLayout.targetSize.width,
+            height: MenuPopoverLayout.targetSize.height,
+            alignment: .top
+        )
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.035, green: 0.045, blue: 0.065),
+                    Color.black
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.22), lineWidth: 0.7)
+        }
+    }
 
-            Button(action: onClose) {
-                Image(systemName: "chevron.up")
-                    .font(.system(size: 11, weight: .bold))
+    private var dashboardHeader: some View {
+        HStack(spacing: 9) {
+            OpenAIKnotMark(color: MenuDashboardVisual.accent)
+                .frame(width: 24, height: 24)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Codex Monitor")
+                    .font(.system(size: 13, weight: .semibold))
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(MenuDashboardVisual.success)
+                        .frame(width: 5, height: 5)
+                    Text(refreshStatusText)
+                        .font(.system(size: 8))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            Button(action: store.requestRefresh) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(MenuDashboardVisual.accent)
                     .frame(width: 28, height: 28)
                     .contentShape(Circle())
             }
             .buttonStyle(.plain)
-            .background(Color.white.opacity(0.075), in: Circle())
+            .background(Color.white.opacity(0.065), in: Circle())
+            .help("刷新数据 ⌘R")
+
+            Button(action: onClose) {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .bold))
+                    .frame(width: 28, height: 28)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .background(Color.white.opacity(0.065), in: Circle())
             .help("收起面板")
         }
-        .padding(.horizontal, 14)
-        .background(Color.white.opacity(0.035))
+        .padding(.horizontal, 4)
     }
 
     private var dashboardFooter: some View {
-        HStack(spacing: 14) {
-            Text("每 30 秒自动刷新")
+        HStack(spacing: 10) {
+            Text("数据每 5 分钟自动刷新")
                 .foregroundStyle(.secondary)
             Spacer()
-            Button("刷新数据 ⌘R", action: store.requestRefresh)
+            Button("⟳  刷新数据   ⌘R", action: store.requestRefresh)
                 .keyboardShortcut("r", modifiers: .command)
-            Button("退出 ⌘Q", action: onQuit)
+            Divider().frame(height: 14)
+            Button("退出   ⌘Q", action: onQuit)
                 .keyboardShortcut("q", modifiers: .command)
         }
-        .font(.system(size: 10, weight: .medium))
+        .font(.system(size: 8, weight: .medium))
         .buttonStyle(.plain)
-        .padding(.horizontal, 14)
-        .background(Color.white.opacity(0.035))
+        .padding(.horizontal, 4)
     }
 
     @ViewBuilder
@@ -144,6 +161,7 @@ struct MenuDashboardView: View {
         case .projectAnalytics:
             MenuProjectAnalyticsSection(
                 analytics: store.snapshot.projectAnalytics,
+                dailyActivity: store.snapshot.dailyActivity,
                 reduceMotion: reduceMotion
             )
         case .statistics:
@@ -160,7 +178,7 @@ struct MenuDashboardView: View {
         case .refreshing:
             return "正在刷新数据…"
         case .updated:
-            return "数据已更新"
+            return "刚刚更新"
         case .failed:
             return "刷新失败，显示最近数据"
         }

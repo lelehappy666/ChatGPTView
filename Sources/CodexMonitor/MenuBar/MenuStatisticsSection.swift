@@ -3,78 +3,75 @@ import SwiftUI
 struct MenuStatisticsSection: View {
     let snapshot: MonitorSnapshot
 
-    private var localUsagePresentation: MenuLocalUsagePresentation {
-        .make(snapshot: snapshot)
-    }
-
     var body: some View {
         MenuDashboardSectionCard {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 5) {
                 MenuDashboardSectionHeader(
                     title: "统计总览",
-                    subtitle: "全部历史"
+                    subtitle: nil
                 ) {
-                    Text("累计")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(.secondary)
+                    EmptyView()
                 }
 
-                if localUsagePresentation == .empty {
+                if MenuLocalUsagePresentation.make(snapshot: snapshot) == .empty {
                     MenuLocalUsageEmptyState()
                 } else {
-                    VStack(spacing: 6) {
-                        HStack(spacing: 6) {
-                            MenuStatisticMetric(
-                                value: MetricFormatter.tokens(snapshot.lifetimeTokens),
-                                label: "累计 Token"
-                            )
-                            MenuStatisticMetric(
-                                value: MetricFormatter.tokens(snapshot.peakTokens),
-                                label: "峰值 Token"
-                            )
-                        }
-
-                        HStack(spacing: 6) {
-                            MenuStatisticMetric(
-                                value: MetricFormatter.duration(snapshot.longestTaskDuration),
-                                label: "最长任务"
-                            )
-                            MenuStatisticMetric(
-                                value: "\(snapshot.currentStreakDays) 天",
-                                label: "当前连续"
-                            )
-                            MenuStatisticMetric(
-                                value: "\(snapshot.longestStreakDays) 天",
-                                label: "最长连续"
-                            )
-                        }
+                    HStack(spacing: 7) {
+                        metric(
+                            icon: "cylinder.split.1x2",
+                            value: MetricFormatter.tokens(snapshot.lifetimeTokens),
+                            label: "累计 Token 数"
+                        )
+                        metric(
+                            icon: "chart.line.uptrend.xyaxis",
+                            value: MetricFormatter.tokens(snapshot.peakTokens),
+                            label: "峰值 Token 数"
+                        )
+                        metric(
+                            icon: "clock",
+                            value: MetricFormatter.duration(snapshot.longestTaskDuration),
+                            label: "最长任务时长"
+                        )
+                        metric(
+                            icon: "calendar",
+                            value: "\(snapshot.currentStreakDays) 天",
+                            label: "当前连续天数"
+                        )
+                        metric(
+                            icon: "medal.star",
+                            value: "\(snapshot.longestStreakDays) 天",
+                            label: "最长连续天数"
+                        )
                     }
                 }
             }
         }
     }
-}
 
-private struct MenuStatisticMetric: View {
-    let value: String
-    let label: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+    private func metric(icon: String, value: String, label: String) -> some View {
+        VStack(spacing: 2) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .foregroundStyle(MenuDashboardVisual.accent)
             Text(value)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(MenuDashboardVisual.accent)
                 .lineLimit(1)
-                .minimumScaleFactor(0.48)
+                .minimumScaleFactor(0.45)
             Text(label)
-                .font(.system(size: 8))
+                .font(.system(size: 6.5))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
-        .padding(7)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 3)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
-            Color.white.opacity(0.045),
-            in: RoundedRectangle(cornerRadius: 8)
+            Color.white.opacity(0.035),
+            in: RoundedRectangle(cornerRadius: 5)
         )
+        .overlay {
+            RoundedRectangle(cornerRadius: 5)
+                .stroke(Color.white.opacity(0.10), lineWidth: 0.6)
+        }
     }
 }

@@ -2,18 +2,20 @@ import XCTest
 @testable import CodexMonitor
 
 final class MenuPopoverLayoutTests: XCTestCase {
-    func testUsesCompactTargetSizeWhenScreenHasEnoughSpace() {
+    func testUsesReferenceTargetSizeWhenScreenHasEnoughSpace() {
         let size = MenuPopoverLayout.contentSize(
             for: CGRect(x: 0, y: 0, width: 1440, height: 1000)
         )
-        XCTAssertEqual(size, CGSize(width: 640, height: 630))
+        XCTAssertEqual(size, CGSize(width: 420, height: 720))
     }
 
-    func testClampsHeightAndWidthToVisibleScreen() {
+    func testSmallScreenPreservesReferenceAspectRatio() {
         let size = MenuPopoverLayout.contentSize(
-            for: CGRect(x: 0, y: 0, width: 600, height: 580)
+            for: CGRect(x: 0, y: 0, width: 500, height: 600)
         )
-        XCTAssertEqual(size, CGSize(width: 576, height: 556))
+        XCTAssertEqual(size.width / size.height, 420.0 / 720.0, accuracy: 0.001)
+        XCTAssertLessThanOrEqual(size.width, 476)
+        XCTAssertLessThanOrEqual(size.height, 576)
     }
 
     func testZeroVisibleFrameDoesNotProduceNegativeContentSize() {
@@ -22,15 +24,9 @@ final class MenuPopoverLayoutTests: XCTestCase {
         XCTAssertEqual(size, .zero)
     }
 
-    func testCompactRowsFitInsideAvailableContentHeight() {
-        let plan = MenuDashboardLayoutPlan.make(contentHeight: 558)
-
-        XCTAssertEqual(
-            plan.firstRowHeight + plan.projectRowHeight
-                + plan.thirdRowHeight + plan.rowSpacing * 2,
-            558,
-            accuracy: 0.001
-        )
+    func testReferenceLayoutPlanFillsCanvasExactly() {
+        let plan = MenuReferenceLayoutPlan()
+        XCTAssertEqual(plan.totalHeight, MenuPopoverLayout.targetSize.height)
     }
 
     func testOpeningHiddenPopoverRequestsRefresh() {

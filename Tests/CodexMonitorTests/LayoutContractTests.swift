@@ -3,12 +3,11 @@ import XCTest
 
 final class LayoutContractTests: XCTestCase {
     func testMenuPopoverContentSizeFitsVisibleScreen() {
-        XCTAssertEqual(
-            MenuPopoverLayout.contentSize(
-                for: CGRect(x: 0, y: 0, width: 800, height: 700)
-            ),
-            CGSize(width: 640, height: 630)
+        let size = MenuPopoverLayout.contentSize(
+            for: CGRect(x: 0, y: 0, width: 800, height: 700)
         )
+        XCTAssertEqual(size.width, 394.33, accuracy: 0.01)
+        XCTAssertEqual(size.height, 676, accuracy: 0.01)
     }
 
     func testMetricFormattingMatchesCompactChineseDesign() {

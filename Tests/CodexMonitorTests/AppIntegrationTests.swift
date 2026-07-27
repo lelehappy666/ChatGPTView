@@ -50,9 +50,9 @@ final class AppIntegrationTests: XCTestCase {
         XCTAssertEqual(plist["CFBundleIconFile"] as? String, "AppIcon")
         XCTAssertEqual(
             plist["CFBundleShortVersionString"] as? String,
-            "0.1.14"
+            "0.1.15"
         )
-        XCTAssertEqual(plist["CFBundleVersion"] as? String, "15")
+        XCTAssertEqual(plist["CFBundleVersion"] as? String, "16")
         XCTAssertTrue(
             FileManager.default.fileExists(
                 atPath: root.appendingPathComponent("Resources/AppIcon.icns").path
@@ -81,7 +81,7 @@ final class AppIntegrationTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains("Timer.publish(every: 30"))
+        XCTAssertTrue(source.contains("Timer.publish(every: 300"))
         XCTAssertTrue(source.contains("NSWorkspace.didWakeNotification"))
         XCTAssertTrue(source.contains("periodicRefreshCancellable?.cancel()"))
         XCTAssertTrue(source.contains("removeObserver(wakeObserver)"))

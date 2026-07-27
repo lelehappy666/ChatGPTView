@@ -7,14 +7,34 @@ struct ProjectAnalyticsBar: Identifiable, Equatable {
 
 enum ProjectAnalyticsBarPlan {
     static func make(rows: [ProjectAnalyticsRow]) -> [ProjectAnalyticsBar] {
-        guard let maximumTokens = rows.map(\.tokens).max(), maximumTokens > 0 else {
+        guard let maximum = rows.map(\.tokens).max(), maximum > 0 else {
             return rows.map { ProjectAnalyticsBar(id: $0.id, relativeHeight: 0) }
         }
-
-        return rows.map { row in
+        return rows.map {
             ProjectAnalyticsBar(
-                id: row.id,
-                relativeHeight: max(0, Double(row.tokens) / Double(maximumTokens))
+                id: $0.id,
+                relativeHeight: Double($0.tokens) / Double(maximum)
+            )
+        }
+    }
+}
+
+struct MenuDailyTokenBar: Identifiable, Equatable {
+    var id: Date { date }
+    let date: Date
+    let tokens: Int
+    let relativeHeight: Double
+}
+
+enum MenuDailyTokenBarPlan {
+    static func make(days: [UsageDay]) -> [MenuDailyTokenBar] {
+        let selected = Array(days.sorted { $0.date < $1.date }.suffix(7))
+        let maximum = max(1, selected.map(\.tokens).max() ?? 1)
+        return selected.map {
+            MenuDailyTokenBar(
+                date: $0.date,
+                tokens: $0.tokens,
+                relativeHeight: Double($0.tokens) / Double(maximum)
             )
         }
     }
@@ -22,22 +42,18 @@ enum ProjectAnalyticsBarPlan {
 
 struct MenuProjectAnalyticsSection: View {
     let analytics: ProjectAnalyticsSnapshot
+    let dailyActivity: [UsageDay]
     let reduceMotion: Bool
 
     @State private var selectedRange: ProjectAnalyticsRange = .sevenDays
     @State private var hoveredProjectID: String?
 
-    init(analytics: ProjectAnalyticsSnapshot, reduceMotion: Bool) {
-        self.analytics = analytics
-        self.reduceMotion = reduceMotion
-    }
-
     private var period: ProjectAnalyticsPeriodSnapshot {
         analytics.period(for: selectedRange)
     }
 
-    private var bars: [ProjectAnalyticsBar] {
-        ProjectAnalyticsBarPlan.make(rows: period.rows)
+    private var bars: [MenuDailyTokenBar] {
+        MenuDailyTokenBarPlan.make(days: dailyActivity)
     }
 
     private var hoveredRow: ProjectAnalyticsRow? {
@@ -46,41 +62,28 @@ struct MenuProjectAnalyticsSection: View {
 
     var body: some View {
         MenuDashboardSectionCard {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 5) {
                 MenuDashboardSectionHeader(
                     title: "项目分析",
-                    subtitle: "按项目查看 Token 与会话"
+                    subtitle: selectedRange.subtitle
                 ) {
                     rangeSelector
                 }
 
-                if period.rows.isEmpty {
-                    emptyState
-                } else {
-                    HStack(alignment: .top, spacing: 16) {
-                        VStack(alignment: .leading, spacing: 5) {
-                            HStack {
-                                Text("Token 分布")
-                                Spacer()
-                                Text("共 \(MetricFormatter.tokens(period.totalTokens)) Token")
-                            }
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(.secondary)
+                HStack(alignment: .top, spacing: 12) {
+                    tokenChart
+                        .frame(maxWidth: .infinity)
 
-                            chart
-                                .frame(height: 80)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Divider()
 
-                        ranking
-                            .frame(width: 200, alignment: .topLeading)
-                    }
-
-                    Text(hoverDetailText)
-                        .font(.system(size: 9, weight: hoveredRow == nil ? .regular : .medium))
-                        .foregroundStyle(hoveredRow == nil ? .secondary : Color.white.opacity(0.82))
-                        .lineLimit(1)
+                    ranking
+                        .frame(width: 168)
                 }
+
+                Text(hoverDetailText)
+                    .font(.system(size: 6.8))
+                    .foregroundStyle(hoveredRow == nil ? .secondary : Color.white.opacity(0.86))
+                    .lineLimit(1)
             }
         }
         .onChange(of: selectedRange) {
@@ -89,101 +92,132 @@ struct MenuProjectAnalyticsSection: View {
     }
 
     private var rangeSelector: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 0) {
             ForEach(ProjectAnalyticsRange.allCases, id: \.self) { range in
                 Button {
                     select(range)
                 } label: {
                     Text(range.title)
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(selectedRange == range ? Color.black : Color.secondary)
-                        .frame(minWidth: 48, minHeight: 24)
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundStyle(selectedRange == range ? Color.white : Color.secondary)
+                        .frame(width: 42, height: 20)
                         .contentShape(Rectangle())
                         .background(
-                            selectedRange == range ? MenuDashboardVisual.accent : Color.clear,
-                            in: Capsule()
+                            selectedRange == range
+                                ? MenuDashboardVisual.accent.opacity(0.42)
+                                : Color.clear
                         )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("查看\(range.title)项目数据")
                 .accessibilityAddTraits(selectedRange == range ? .isSelected : [])
             }
         }
-        .padding(2)
-        .background(Color.white.opacity(0.055), in: Capsule())
-        .overlay(
-            Capsule()
-                .stroke(Color.white.opacity(0.1), lineWidth: 0.8)
-        )
+        .background(Color.white.opacity(0.05), in: Capsule())
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 0.7))
     }
 
-    private var chart: some View {
-        GeometryReader { proxy in
-            HStack(alignment: .bottom, spacing: 5) {
-                ForEach(bars) { bar in
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(
-                            hoveredProjectID == bar.id
-                                ? Color.white
-                                : MenuDashboardVisual.accent
-                        )
-                        .frame(
-                            maxWidth: .infinity,
-                            minHeight: 4,
-                            maxHeight: proxy.size.height * bar.relativeHeight,
-                            alignment: .bottom
-                        )
-                        .contentShape(Rectangle())
-                        .onHover { isHovered in
-                            if isHovered {
-                                hoveredProjectID = bar.id
-                            } else if hoveredProjectID == bar.id {
-                                hoveredProjectID = nil
+    private var tokenChart: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text("最近 7 天")
+                Spacer()
+                Text(MetricFormatter.tokens(bars.reduce(0) { $0 + $1.tokens }))
+            }
+            .font(.system(size: 7.5))
+            .foregroundStyle(.secondary)
+
+            GeometryReader { proxy in
+                ZStack(alignment: .bottom) {
+                    VStack {
+                        Divider()
+                        Spacer()
+                        Divider()
+                        Spacer()
+                        Divider()
+                    }
+                    .opacity(0.35)
+
+                    HStack(alignment: .bottom, spacing: 7) {
+                        ForEach(bars) { bar in
+                            VStack(spacing: 2) {
+                                Spacer(minLength: 0)
+                                RoundedRectangle(cornerRadius: 1.5)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                MenuDashboardVisual.accent.opacity(0.65),
+                                                MenuDashboardVisual.accent
+                                            ],
+                                            startPoint: .bottom,
+                                            endPoint: .top
+                                        )
+                                    )
+                                    .frame(
+                                        height: max(
+                                            3,
+                                            (proxy.size.height - 12) * bar.relativeHeight
+                                        )
+                                    )
+                                    .help("\(weekday(bar.date)) · \(MetricFormatter.tokens(bar.tokens)) Token")
+                                Text(weekday(bar.date))
+                                    .font(.system(size: 6.5))
+                                    .foregroundStyle(.secondary)
                             }
+                            .frame(maxWidth: .infinity)
                         }
-                        .animation(
-                            reduceMotion ? nil : .snappy(duration: 0.18),
-                            value: bar.relativeHeight
-                        )
-                        .accessibilityLabel(projectName(for: bar.id))
-                        .accessibilityValue(projectAccessibilityValue(for: bar.id))
+                    }
                 }
             }
+            .frame(height: 57)
         }
-        .accessibilityElement(children: .contain)
     }
 
     private var ranking: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
             HStack {
-                Text("Token 排名")
+                Text("项目")
                 Spacer()
-                Text("前五")
+                Text("Token 总数")
             }
-            .font(.system(size: 9, weight: .semibold))
+            .font(.system(size: 7.5, weight: .medium))
             .foregroundStyle(.secondary)
 
-            ForEach(period.rows.prefix(5)) { row in
-                HStack(spacing: 8) {
+            Divider()
+
+            ForEach(period.rows.prefix(3)) { row in
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(MenuDashboardVisual.accent)
+                        .frame(width: 5, height: 5)
                     Text(row.name)
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.system(size: 8.5, weight: .medium))
                         .lineLimit(1)
                         .truncationMode(.middle)
-                    Spacer(minLength: 8)
+                    Spacer(minLength: 4)
                     Text(MetricFormatter.tokens(row.tokens))
-                        .font(.system(size: 9, weight: .semibold, design: .rounded))
-                    Text("\(Int((row.share * 100).rounded()))%")
-                        .font(.system(size: 9, weight: .medium, design: .rounded))
-                        .foregroundStyle(MenuDashboardVisual.accent)
-                        .frame(width: 30, alignment: .trailing)
+                        .font(.system(size: 8.5, weight: .medium, design: .rounded))
                 }
+                .padding(.horizontal, 5)
+                .frame(height: 18)
                 .contentShape(Rectangle())
-                .onHover { isHovered in
-                    if isHovered {
-                        hoveredProjectID = row.id
-                    } else if hoveredProjectID == row.id {
-                        hoveredProjectID = nil
-                    }
+                .background(
+                    hoveredProjectID == row.id
+                        ? MenuDashboardVisual.accent.opacity(0.16)
+                        : Color.clear,
+                    in: RoundedRectangle(cornerRadius: 4)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(
+                            hoveredProjectID == row.id
+                                ? MenuDashboardVisual.accent.opacity(0.7)
+                                : Color.clear,
+                            lineWidth: 0.7
+                        )
+                }
+                .onHover { hovering in
+                    hoveredProjectID = hovering ? row.id : nil
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(row.name)
@@ -192,27 +226,14 @@ struct MenuProjectAnalyticsSection: View {
         }
     }
 
-    private var emptyState: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "chart.bar.xaxis")
-                .foregroundStyle(MenuDashboardVisual.accent)
-            Text("这个时间范围还没有项目数据")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, minHeight: 80)
-    }
-
     private var hoverDetailText: String {
         guard let row = hoveredRow else {
-            return "将鼠标移到柱状图或项目上，查看会话与活跃天数"
+            return "将鼠标移到排名项目中，查看会话与活跃天数"
         }
-        let average = row.sessions > 0 ? row.tokens / row.sessions : 0
-        return "\(row.name) · \(row.sessions) 次会话 · \(row.activeDays) 个活跃日 · 平均 \(MetricFormatter.tokens(average)) / 会话"
+        return "\(row.name) · \(row.sessions) 次会话 · \(row.activeDays) 个活跃日"
     }
 
     private func select(_ range: ProjectAnalyticsRange) {
-        hoveredProjectID = nil
         guard selectedRange != range else { return }
         if reduceMotion {
             selectedRange = range
@@ -223,18 +244,15 @@ struct MenuProjectAnalyticsSection: View {
         }
     }
 
-    private func projectName(for id: String) -> String {
-        period.rows.first { $0.id == id }?.name ?? "项目"
-    }
-
-    private func projectAccessibilityValue(for id: String) -> String {
-        guard let row = period.rows.first(where: { $0.id == id }) else { return "" }
-        return rowAccessibilityValue(row)
+    private func weekday(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "EEE"
+        return formatter.string(from: date)
     }
 
     private func rowAccessibilityValue(_ row: ProjectAnalyticsRow) -> String {
-        let percent = Int((row.share * 100).rounded())
-        return "\(MetricFormatter.tokens(row.tokens)) Token，\(percent)% ，\(row.sessions) 次会话，\(row.activeDays) 个活跃日"
+        "\(MetricFormatter.tokens(row.tokens)) Token，\(row.sessions) 次会话，\(row.activeDays) 个活跃日"
     }
 }
 
@@ -244,6 +262,14 @@ private extension ProjectAnalyticsRange {
         case .sevenDays: "7 天"
         case .thirtyDays: "30 天"
         case .all: "全部"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .sevenDays: "最近 7 天"
+        case .thirtyDays: "最近 30 天"
+        case .all: "全部历史"
         }
     }
 }

@@ -4,9 +4,11 @@ import SwiftUI
 enum RepositoryGridDensity: Equatable {
     case standard
     case compact
+    case reference
 }
 
 struct RepositoryGridMetrics: Equatable {
+    let columnCount: Int
     let rowCount: Int
     let rowHeight: CGFloat
     let rowSpacing: CGFloat
@@ -21,6 +23,7 @@ struct RepositoryGridMetrics: Equatable {
         switch density {
         case .standard:
             Self(
+                columnCount: 2,
                 rowCount: 3,
                 rowHeight: 30,
                 rowSpacing: 4,
@@ -28,10 +31,19 @@ struct RepositoryGridMetrics: Equatable {
             )
         case .compact:
             Self(
+                columnCount: 2,
                 rowCount: 3,
                 rowHeight: 22,
                 rowSpacing: 2,
                 columnSpacing: 4
+            )
+        case .reference:
+            Self(
+                columnCount: 2,
+                rowCount: 3,
+                rowHeight: 25,
+                rowSpacing: 3,
+                columnSpacing: 8
             )
         }
     }
@@ -67,7 +79,7 @@ struct RecentRepositoryGrid: View {
                         .flexible(),
                         spacing: metrics.columnSpacing
                     ),
-                    count: 2
+                    count: metrics.columnCount
                 ),
                 spacing: metrics.rowSpacing
             ) {
@@ -96,22 +108,22 @@ private struct RepositoryLinkCard: View {
             NSWorkspace.shared.open(repository.url)
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: "book.closed")
-                    .font(.system(size: density == .compact ? 9 : 11))
+                Image(systemName: density == .reference ? "cat.fill" : "book.closed")
+                    .font(.system(size: iconSize))
                     .foregroundStyle(.secondary)
 
                 VStack(alignment: .leading, spacing: 0) {
                     Text(repository.name)
                         .font(
                             .system(
-                                size: density == .compact ? 9 : 10,
+                                size: titleSize,
                                 weight: .semibold
                             )
                         )
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Text(relativeTime)
-                        .font(.system(size: density == .compact ? 7 : 8))
+                        .font(.system(size: subtitleSize))
                         .foregroundStyle(.secondary)
                 }
 
@@ -119,7 +131,7 @@ private struct RepositoryLinkCard: View {
                 Image(systemName: "arrow.up.right")
                     .font(
                         .system(
-                            size: density == .compact ? 7 : 8,
+                            size: subtitleSize,
                             weight: .semibold
                         )
                     )
@@ -143,5 +155,29 @@ private struct RepositoryLinkCard: View {
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.unitsStyle = .short
         return formatter.localizedString(for: repository.pushedAt, relativeTo: .now)
+    }
+
+    private var iconSize: CGFloat {
+        switch density {
+        case .compact: 9
+        case .standard: 11
+        case .reference: 10
+        }
+    }
+
+    private var titleSize: CGFloat {
+        switch density {
+        case .compact: 9
+        case .standard: 10
+        case .reference: 8.5
+        }
+    }
+
+    private var subtitleSize: CGFloat {
+        switch density {
+        case .compact: 7
+        case .standard: 8
+        case .reference: 7
+        }
     }
 }

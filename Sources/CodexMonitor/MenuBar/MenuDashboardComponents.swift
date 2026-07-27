@@ -9,19 +9,19 @@ struct MenuDashboardSectionCard<Content: View>: View {
 
     var body: some View {
         content
-            .padding(10)
+            .padding(8)
             .frame(
                 maxWidth: .infinity,
                 maxHeight: .infinity,
                 alignment: .topLeading
             )
             .background(
-                Color.white.opacity(0.055),
-                in: RoundedRectangle(cornerRadius: 13)
+                Color.white.opacity(0.035),
+                in: RoundedRectangle(cornerRadius: 8)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 13)
-                    .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.white.opacity(0.14), lineWidth: 0.7)
             )
     }
 }
@@ -35,10 +35,10 @@ struct MenuDashboardSectionHeader<Trailing: View>: View {
         HStack(alignment: .top, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                 if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 9))
+                        .font(.system(size: 8))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }

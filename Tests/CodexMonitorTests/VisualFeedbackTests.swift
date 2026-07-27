@@ -59,4 +59,23 @@ final class VisualFeedbackTests: XCTestCase {
         XCTAssertLessThan(compact.width, standard.width)
         XCTAssertEqual(compact.rowCount, 7)
     }
+
+    func testReferenceActivityGridBuildsSixteenWeeks() {
+        XCTAssertEqual(MenuActivityGrid.days(from: []).count, 112)
+    }
+
+    func testDailyTokenBarsKeepLastSevenCalendarDays() {
+        let days = (0..<9).map {
+            UsageDay(
+                date: Date(timeIntervalSince1970: Double($0 * 86_400)),
+                tokens: ($0 + 1) * 100,
+                sessions: 1
+            )
+        }
+
+        XCTAssertEqual(
+            MenuDailyTokenBarPlan.make(days: days).map(\.tokens),
+            [300, 400, 500, 600, 700, 800, 900]
+        )
+    }
 }

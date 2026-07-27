@@ -42,7 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         watcher.start()
         self.watcher = watcher
 
-        periodicRefreshCancellable = Timer.publish(every: 30, on: .main, in: .common)
+        periodicRefreshCancellable = Timer.publish(every: 300, on: .main, in: .common)
             .autoconnect()
             .sink { [weak store] _ in
                 store?.requestRefresh()

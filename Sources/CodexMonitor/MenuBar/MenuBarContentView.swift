@@ -137,12 +137,14 @@ private struct ProjectTickerView: View {
     }
 }
 
-private struct OpenAIKnotMark: View {
+struct OpenAIKnotMark: View {
+    var color: Color = .primary
+
     var body: some View {
         ZStack {
             ForEach([0.0, 60.0, 120.0], id: \.self) { angle in
                 Capsule()
-                    .stroke(Color.primary, lineWidth: 1.25)
+                    .stroke(color, lineWidth: 1.25)
                     .frame(width: 6.5, height: 12.5)
                     .rotationEffect(.degrees(angle))
             }

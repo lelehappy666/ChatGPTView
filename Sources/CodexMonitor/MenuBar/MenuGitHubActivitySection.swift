@@ -41,34 +41,23 @@ struct MenuGitHubActivitySection: View {
                 GitHubAuthorizationCard(message: message) { token in
                     await store.bind(token: token)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 4)
+                .scaleEffect(0.78)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             case .loading:
                 VStack(alignment: .leading, spacing: 8) {
-                    MenuDashboardSectionHeader(
-                        title: "GitHub 活跃",
-                        subtitle: "正在加载"
-                    ) {
-                        Image(systemName: "cat.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(Color.black)
-                            .frame(width: 24, height: 24)
-                            .background(Color.white, in: Circle())
-                    }
-
+                    Text("GitHub 活跃")
+                        .font(.system(size: 12, weight: .semibold))
                     ProgressView("正在加载 GitHub 活动…")
                         .controlSize(.small)
-                        .frame(maxWidth: .infinity, minHeight: 60)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
 
             case .content(let snapshot, let statusMessage):
                 MenuGitHubActivityContent(
                     snapshot: snapshot,
                     statusMessage: statusMessage,
-                    onRefresh: {
-                        Task { await store.refresh() }
-                    },
+                    onRefresh: { Task { await store.refresh() } },
                     onDisconnect: store.disconnect
                 )
             }
@@ -86,89 +75,99 @@ private struct MenuGitHubActivityContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            MenuDashboardSectionHeader(
-                title: "GitHub 活跃",
-                subtitle: statusMessage ?? "最近 12 个月"
-            ) {
-                HStack(spacing: 5) {
-                    Button(action: onRefresh) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 9, weight: .semibold))
-                            .frame(width: 24, height: 24)
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .background(Color.white.opacity(0.075), in: Circle())
-                    .help("刷新 GitHub 数据")
+            HStack {
+                Text("GitHub 活跃")
+                    .font(.system(size: 12, weight: .semibold))
+                Spacer()
+                Button(action: onRefresh) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 8, weight: .semibold))
+                        .frame(width: 20, height: 20)
+                }
+                .buttonStyle(.plain)
+                .background(Color.white.opacity(0.065), in: Circle())
+                .help("刷新 GitHub 数据")
 
-                    Button(action: onRefresh) {
-                        HStack(spacing: 4) {
-                            Text(snapshot.username)
-                                .lineLimit(1)
-                            Circle()
-                                .fill(MenuDashboardVisual.success)
-                                .frame(width: 6, height: 6)
-                        }
-                        .font(.system(size: 9, weight: .medium))
-                        .padding(.horizontal, 7)
-                        .frame(height: 24)
-                        .background(
-                            Color.white.opacity(0.075),
-                            in: RoundedRectangle(cornerRadius: 8)
-                        )
+                Button(action: onRefresh) {
+                    HStack(spacing: 4) {
+                        Text(snapshot.username)
+                            .lineLimit(1)
+                        Circle()
+                            .fill(MenuDashboardVisual.success)
+                            .frame(width: 5, height: 5)
                     }
-                    .buttonStyle(.plain)
-                    .contextMenu {
-                        Button("解除绑定", role: .destructive, action: onDisconnect)
-                    }
-                    .help("右键可解除 GitHub 绑定")
+                    .font(.system(size: 8, weight: .medium))
+                    .padding(.horizontal, 7)
+                    .frame(height: 20)
+                    .background(
+                        Color.white.opacity(0.065),
+                        in: RoundedRectangle(cornerRadius: 6)
+                    )
+                }
+                .buttonStyle(.plain)
+                .contextMenu {
+                    Button("解除绑定", role: .destructive, action: onDisconnect)
                 }
             }
 
-            HStack(alignment: .lastTextBaseline) {
-                HStack(alignment: .lastTextBaseline, spacing: 5) {
+            HStack(alignment: .top, spacing: 8) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(snapshot.totalContributions.formatted())
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundStyle(MenuDashboardVisual.accent)
                     Text("次贡献")
                         .font(.system(size: 8))
                         .foregroundStyle(.secondary)
                 }
+                .frame(width: 74, alignment: .leading)
 
-                Spacer()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("11月        12月        1月        2月        3月        4月        5月")
+                        .font(.system(size: 5.8))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
 
-                if let hoveredContributionDay {
-                    Text(GitHubContributionTooltip.text(for: hoveredContributionDay))
-                        .font(.system(size: 8, weight: .medium))
+                    HStack(spacing: 3) {
+                        VStack(spacing: 6) {
+                            Text("周一")
+                            Text("周三")
+                            Text("周五")
+                        }
+                        .font(.system(size: 5.8))
                         .foregroundStyle(.secondary)
-                } else if let statusMessage {
-                    Text(statusMessage)
-                        .font(.system(size: 8, weight: .medium))
-                        .foregroundStyle(Color.orange)
-                } else {
-                    Text("贡献热力图")
-                        .font(.system(size: 8))
-                        .foregroundStyle(.secondary)
+
+                        GitHubContributionHeatmap(
+                            days: snapshot.contributionDays,
+                            onHover: { hoveredContributionDay = $0 }
+                        )
+                        .frame(height: 39)
+                    }
+
+                    HStack {
+                        if let hoveredContributionDay {
+                            Text(GitHubContributionTooltip.text(for: hoveredContributionDay))
+                                .lineLimit(1)
+                        } else if let statusMessage {
+                            Text(statusMessage)
+                                .foregroundStyle(Color.orange)
+                        } else {
+                            Spacer()
+                            Text("少  ■ ■ ■ ■  多")
+                        }
+                    }
+                    .font(.system(size: 6))
+                    .foregroundStyle(.secondary)
                 }
+                .frame(maxWidth: .infinity)
             }
-
-            GitHubContributionHeatmap(
-                days: snapshot.contributionDays,
-                onHover: { hoveredContributionDay = $0 }
-            )
-            .frame(height: 36)
-
-            Text("最近更新")
-                .font(.system(size: 9, weight: .semibold))
+            .frame(height: 61)
 
             RecentRepositoryGrid(
                 repositories: snapshot.repositories,
-                density: .compact
+                density: .reference
             )
             .frame(
-                height: RepositoryGridMetrics.make(
-                    density: .compact
-                ).totalHeight,
+                height: RepositoryGridMetrics.make(density: .reference).totalHeight,
                 alignment: .top
             )
         }

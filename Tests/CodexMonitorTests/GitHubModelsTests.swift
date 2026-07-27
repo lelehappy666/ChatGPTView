@@ -130,4 +130,15 @@ final class GitHubModelsTests: XCTestCase {
 
         XCTAssertTrue([repository].recentlyPushed(limit: -1).isEmpty)
     }
+
+    func testReferenceRepositoryGridUsesTwoColumnsAndThreeRows() {
+        let metrics = RepositoryGridMetrics.make(density: .reference)
+
+        XCTAssertEqual(metrics.columnCount, 2)
+        XCTAssertEqual(metrics.rowCount, 3)
+        XCTAssertGreaterThan(
+            metrics.rowHeight,
+            RepositoryGridMetrics.make(density: .compact).rowHeight
+        )
+    }
 }

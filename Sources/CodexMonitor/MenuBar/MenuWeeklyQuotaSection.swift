@@ -26,9 +26,7 @@ struct MenuWeeklyQuotaPresentation: Equatable {
         let resetText: String
         if let resetDate = quota.resetsAt {
             let seconds = max(0, Int(resetDate.timeIntervalSince(now)))
-            let days = seconds / 86_400
-            let hours = (seconds % 86_400) / 3_600
-            resetText = "\(days) 天 \(hours) 小时"
+            resetText = "\(seconds / 86_400) 天 \((seconds % 86_400) / 3_600) 小时"
         } else {
             resetText = "—"
         }
@@ -57,103 +55,100 @@ struct MenuWeeklyQuotaSection: View {
         in: .common
     ).autoconnect()
 
-    private var quotaPresentation: MenuWeeklyQuotaPresentation {
-        .make(
-            quota: snapshot.weeklyQuota,
-            now: now
-        )
+    private var quota: MenuWeeklyQuotaPresentation {
+        .make(quota: snapshot.weeklyQuota, now: now)
     }
 
     private var refreshPresentation: QuotaRefreshPresentation {
         .make(
             refreshState: refreshState,
             hasQuota: snapshot.weeklyQuota.remainingPercent != nil,
-            isFresh: quotaPresentation.isFresh
+            isFresh: quota.isFresh
         )
     }
 
     var body: some View {
         MenuDashboardSectionCard {
-            VStack(alignment: .leading, spacing: 8) {
-                MenuDashboardSectionHeader(
-                    title: "本周额度",
-                    subtitle: "Codex 本地额度"
-                ) {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 8) {
+                    Text("本周额度")
+                        .font(.system(size: 12, weight: .semibold))
+
                     Button(action: onRefresh) {
                         HStack(spacing: 4) {
                             if refreshPresentation.showsProgress {
-                                ProgressView().controlSize(.small)
+                                ProgressView().controlSize(.mini)
                             } else {
-                                Image(systemName: "arrow.clockwise")
+                                Circle()
+                                    .fill(
+                                        quota.isFresh
+                                            ? MenuDashboardVisual.success
+                                            : MenuDashboardVisual.accent
+                                    )
+                                    .frame(width: 5, height: 5)
                             }
                             Text(refreshPresentation.title)
                         }
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(MenuDashboardVisual.success)
-                        .padding(.horizontal, 7)
-                        .frame(height: 24)
-                        .contentShape(Capsule())
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundStyle(
+                            quota.isFresh
+                                ? MenuDashboardVisual.success
+                                : Color.secondary
+                        )
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .disabled(!refreshPresentation.isEnabled)
-                    .background(
-                        Color.white.opacity(0.075),
-                        in: Capsule()
-                    )
-                    .help("立即重新扫描 Codex 本地额度数据")
+                    .help("点击重新扫描 Codex 本地额度数据")
+                    Spacer()
                 }
 
-                HStack(alignment: .center, spacing: 10) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("剩余额度")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.secondary)
-                        HStack(alignment: .lastTextBaseline, spacing: 4) {
-                            Text(quotaPresentation.remainingText)
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
-                            if quotaPresentation.showsRemainingUnit {
-                                Text("%")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(.secondary)
-                            }
+                HStack(spacing: 18) {
+                    HStack(alignment: .lastTextBaseline, spacing: 3) {
+                        Text(quota.remainingText)
+                            .font(.system(size: 29, weight: .bold, design: .rounded))
+                            .foregroundStyle(MenuDashboardVisual.accent)
+                        if quota.showsRemainingUnit {
+                            Text("%")
+                                .font(.system(size: 13, weight: .semibold))
                         }
+                        Text("剩余额度")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.secondary)
                     }
-                    .frame(width: 82, alignment: .leading)
+                    .frame(width: 112, alignment: .leading)
 
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(spacing: 7) {
                         HStack {
                             Text("本周已用")
+                            Text(quota.usedText)
+                                .foregroundStyle(MenuDashboardVisual.accent)
                             Spacer()
-                            Text(quotaPresentation.usedText)
-                                .fontWeight(.semibold)
                         }
 
                         GeometryReader { proxy in
                             ZStack(alignment: .leading) {
-                                Capsule().fill(Color.white.opacity(0.10))
-                                if let usedFraction = quotaPresentation.usedFraction {
+                                Capsule().fill(Color.white.opacity(0.12))
+                                if let usedFraction = quota.usedFraction {
                                     Capsule()
                                         .fill(MenuDashboardVisual.accent)
                                         .frame(width: proxy.size.width * usedFraction)
                                 }
                             }
                         }
-                        .frame(height: 6)
+                        .frame(height: 5)
 
                         HStack {
                             Text("距离重置")
+                            Text(quota.resetText)
+                                .foregroundStyle(MenuDashboardVisual.accent)
                             Spacer()
-                            Text(quotaPresentation.resetText)
-                                .fontWeight(.semibold)
                         }
                     }
-                    .font(.system(size: 9))
-                    .frame(maxWidth: .infinity)
+                    .font(.system(size: 8.5))
                 }
             }
         }
-        .onReceive(freshnessTimer) { now in
-            self.now = now
-        }
+        .onReceive(freshnessTimer) { now = $0 }
     }
 }
