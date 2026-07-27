@@ -45,7 +45,7 @@ struct MenuGitHubActivitySection: View {
                 .padding(.vertical, 4)
 
             case .loading:
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
                     MenuDashboardSectionHeader(
                         title: "GitHub 活跃",
                         subtitle: "正在加载"
@@ -53,13 +53,13 @@ struct MenuGitHubActivitySection: View {
                         Image(systemName: "cat.fill")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(Color.black)
-                            .frame(width: 28, height: 28)
+                            .frame(width: 24, height: 24)
                             .background(Color.white, in: Circle())
                     }
 
                     ProgressView("正在加载 GitHub 活动…")
                         .controlSize(.small)
-                        .frame(maxWidth: .infinity, minHeight: 76)
+                        .frame(maxWidth: .infinity, minHeight: 60)
                 }
 
             case .content(let snapshot, let statusMessage):
@@ -85,16 +85,16 @@ private struct MenuGitHubActivityContent: View {
     @State private var hoveredContributionDay: GitHubContributionDay?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 4) {
             MenuDashboardSectionHeader(
                 title: "GitHub 活跃",
                 subtitle: statusMessage ?? "最近 12 个月"
             ) {
-                HStack(spacing: 8) {
+                HStack(spacing: 5) {
                     Button(action: onRefresh) {
                         Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 11, weight: .semibold))
-                            .frame(width: 28, height: 28)
+                            .font(.system(size: 9, weight: .semibold))
+                            .frame(width: 24, height: 24)
                             .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -102,16 +102,16 @@ private struct MenuGitHubActivityContent: View {
                     .help("刷新 GitHub 数据")
 
                     Button(action: onRefresh) {
-                        HStack(spacing: 6) {
+                        HStack(spacing: 4) {
                             Text(snapshot.username)
                                 .lineLimit(1)
                             Circle()
                                 .fill(MenuDashboardVisual.success)
                                 .frame(width: 6, height: 6)
                         }
-                        .font(.system(size: 11, weight: .medium))
-                        .padding(.horizontal, 9)
-                        .frame(height: 28)
+                        .font(.system(size: 9, weight: .medium))
+                        .padding(.horizontal, 7)
+                        .frame(height: 24)
                         .background(
                             Color.white.opacity(0.075),
                             in: RoundedRectangle(cornerRadius: 8)
@@ -128,10 +128,10 @@ private struct MenuGitHubActivityContent: View {
             HStack(alignment: .lastTextBaseline) {
                 HStack(alignment: .lastTextBaseline, spacing: 5) {
                     Text(snapshot.totalContributions.formatted())
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
                         .foregroundStyle(MenuDashboardVisual.accent)
                     Text("次贡献")
-                        .font(.system(size: 10))
+                        .font(.system(size: 8))
                         .foregroundStyle(.secondary)
                 }
 
@@ -139,15 +139,15 @@ private struct MenuGitHubActivityContent: View {
 
                 if let hoveredContributionDay {
                     Text(GitHubContributionTooltip.text(for: hoveredContributionDay))
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 8, weight: .medium))
                         .foregroundStyle(.secondary)
                 } else if let statusMessage {
                     Text(statusMessage)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 8, weight: .medium))
                         .foregroundStyle(Color.orange)
                 } else {
                     Text("贡献热力图")
-                        .font(.system(size: 10))
+                        .font(.system(size: 8))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -156,13 +156,21 @@ private struct MenuGitHubActivityContent: View {
                 days: snapshot.contributionDays,
                 onHover: { hoveredContributionDay = $0 }
             )
-            .frame(height: 72)
+            .frame(height: 36)
 
             Text("最近更新")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 9, weight: .semibold))
 
-            RecentRepositoryGrid(repositories: snapshot.repositories)
-                .frame(height: 100, alignment: .top)
+            RecentRepositoryGrid(
+                repositories: snapshot.repositories,
+                density: .compact
+            )
+            .frame(
+                height: RepositoryGridMetrics.make(
+                    density: .compact
+                ).totalHeight,
+                alignment: .top
+            )
         }
     }
 }

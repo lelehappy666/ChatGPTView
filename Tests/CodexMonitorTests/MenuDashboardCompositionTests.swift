@@ -141,6 +141,17 @@ final class MenuDashboardCompositionTests: XCTestCase {
         XCTAssertEqual(bars.map(\.relativeHeight), [1.0, 0.5])
     }
 
+    func testCompactRepositoryGridFitsThreeRowsInsideEightyPoints() {
+        let metrics = RepositoryGridMetrics.make(density: .compact)
+
+        XCTAssertEqual(metrics.rowCount, 3)
+        XCTAssertLessThanOrEqual(metrics.totalHeight, 80)
+        XCTAssertLessThan(
+            metrics.rowHeight,
+            RepositoryGridMetrics.make(density: .standard).rowHeight
+        )
+    }
+
     func testGitHubMenuPresentationMapsUnboundStateToAuthorization() {
         XCTAssertEqual(
             GitHubMenuPresentation.make(state: .unbound(message: nil)),

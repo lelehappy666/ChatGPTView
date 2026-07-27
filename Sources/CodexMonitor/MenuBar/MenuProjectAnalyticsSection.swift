@@ -46,7 +46,7 @@ struct MenuProjectAnalyticsSection: View {
 
     var body: some View {
         MenuDashboardSectionCard {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
                 MenuDashboardSectionHeader(
                     title: "项目分析",
                     subtitle: "按项目查看 Token 与会话"
@@ -57,27 +57,27 @@ struct MenuProjectAnalyticsSection: View {
                 if period.rows.isEmpty {
                     emptyState
                 } else {
-                    HStack(alignment: .top, spacing: 24) {
-                        VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .top, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 5) {
                             HStack {
                                 Text("Token 分布")
                                 Spacer()
                                 Text("共 \(MetricFormatter.tokens(period.totalTokens)) Token")
                             }
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(.secondary)
 
                             chart
-                                .frame(height: 118)
+                                .frame(height: 80)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                         ranking
-                            .frame(width: 230, alignment: .topLeading)
+                            .frame(width: 200, alignment: .topLeading)
                     }
 
                     Text(hoverDetailText)
-                        .font(.system(size: 10, weight: hoveredRow == nil ? .regular : .medium))
+                        .font(.system(size: 9, weight: hoveredRow == nil ? .regular : .medium))
                         .foregroundStyle(hoveredRow == nil ? .secondary : Color.white.opacity(0.82))
                         .lineLimit(1)
                 }
@@ -95,9 +95,9 @@ struct MenuProjectAnalyticsSection: View {
                     select(range)
                 } label: {
                     Text(range.title)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(selectedRange == range ? Color.black : Color.secondary)
-                        .frame(minWidth: 58, minHeight: 28)
+                        .frame(minWidth: 48, minHeight: 24)
                         .contentShape(Rectangle())
                         .background(
                             selectedRange == range ? MenuDashboardVisual.accent : Color.clear,
@@ -109,7 +109,7 @@ struct MenuProjectAnalyticsSection: View {
                 .accessibilityAddTraits(selectedRange == range ? .isSelected : [])
             }
         }
-        .padding(3)
+        .padding(2)
         .background(Color.white.opacity(0.055), in: Capsule())
         .overlay(
             Capsule()
@@ -154,28 +154,28 @@ struct MenuProjectAnalyticsSection: View {
     }
 
     private var ranking: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("Token 排名")
                 Spacer()
                 Text("前五")
             }
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: 9, weight: .semibold))
             .foregroundStyle(.secondary)
 
             ForEach(period.rows.prefix(5)) { row in
                 HStack(spacing: 8) {
                     Text(row.name)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 9, weight: .medium))
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 8)
                     Text(MetricFormatter.tokens(row.tokens))
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
                     Text("\(Int((row.share * 100).rounded()))%")
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .font(.system(size: 9, weight: .medium, design: .rounded))
                         .foregroundStyle(MenuDashboardVisual.accent)
-                        .frame(width: 34, alignment: .trailing)
+                        .frame(width: 30, alignment: .trailing)
                 }
                 .contentShape(Rectangle())
                 .onHover { isHovered in
@@ -200,7 +200,7 @@ struct MenuProjectAnalyticsSection: View {
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, minHeight: 118)
+        .frame(maxWidth: .infinity, minHeight: 80)
     }
 
     private var hoverDetailText: String {

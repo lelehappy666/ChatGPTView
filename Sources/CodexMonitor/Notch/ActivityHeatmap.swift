@@ -1,9 +1,71 @@
 import SwiftUI
 
+enum ActivityHeatmapDensity: Equatable {
+    case standard
+    case compact
+}
+
+struct ActivityHeatmapMetrics: Equatable {
+    let rowCount: Int
+    let cellSize: CGFloat
+    let cellSpacing: CGFloat
+    let width: CGFloat
+    let legendSpacing: CGFloat
+    let legendHeight: CGFloat
+    let legendCellSize: CGFloat
+
+    var gridHeight: CGFloat {
+        CGFloat(rowCount) * cellSize
+            + CGFloat(rowCount - 1) * cellSpacing
+    }
+
+    var totalHeight: CGFloat {
+        gridHeight + legendSpacing + legendHeight
+    }
+
+    static func make(density: ActivityHeatmapDensity) -> Self {
+        switch density {
+        case .standard:
+            Self(
+                rowCount: 7,
+                cellSize: 11,
+                cellSpacing: 3,
+                width: 142,
+                legendSpacing: 5,
+                legendHeight: 12,
+                legendCellSize: 8
+            )
+        case .compact:
+            Self(
+                rowCount: 7,
+                cellSize: 7,
+                cellSpacing: 2,
+                width: 86,
+                legendSpacing: 4,
+                legendHeight: 10,
+                legendCellSize: 6
+            )
+        }
+    }
+}
+
 struct ActivityHeatmap: View {
     let days: [UsageDay]
+    let density: ActivityHeatmapDensity
 
     @State private var hoveredDay: UsageDay?
+
+    init(
+        days: [UsageDay],
+        density: ActivityHeatmapDensity = .standard
+    ) {
+        self.days = days
+        self.density = density
+    }
+
+    private var metrics: ActivityHeatmapMetrics {
+        .make(density: density)
+    }
 
     private var paddedDays: [UsageDay] {
         ActivityGrid.days(from: days)
@@ -14,15 +76,24 @@ struct ActivityHeatmap: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: metrics.legendSpacing) {
             LazyHGrid(
-                rows: Array(repeating: GridItem(.fixed(11), spacing: 3), count: 7),
-                spacing: 3
+                rows: Array(
+                    repeating: GridItem(
+                        .fixed(metrics.cellSize),
+                        spacing: metrics.cellSpacing
+                    ),
+                    count: metrics.rowCount
+                ),
+                spacing: metrics.cellSpacing
             ) {
                 ForEach(Array(paddedDays.enumerated()), id: \.offset) { _, day in
                     RoundedRectangle(cornerRadius: 2)
                         .fill(color(for: day.tokens))
-                        .frame(width: 11, height: 11)
+                        .frame(
+                            width: metrics.cellSize,
+                            height: metrics.cellSize
+                        )
                         .contentShape(Rectangle())
                         .onHover { isHovered in
                             if isHovered {
@@ -33,7 +104,11 @@ struct ActivityHeatmap: View {
                         }
                 }
             }
-            .frame(width: 142, height: 95, alignment: .leading)
+            .frame(
+                width: metrics.width,
+                height: metrics.gridHeight,
+                alignment: .leading
+            )
 
             Group {
                 if let hoveredDay {
@@ -42,14 +117,22 @@ struct ActivityHeatmap: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.72)
                 } else {
-                    ActivityLegend()
+                    ActivityLegend(cellSize: metrics.legendCellSize)
                 }
             }
             .font(.system(size: 9))
             .foregroundStyle(.secondary)
-            .frame(width: 142, height: 12, alignment: .leading)
+            .frame(
+                width: metrics.width,
+                height: metrics.legendHeight,
+                alignment: .leading
+            )
         }
-        .frame(width: 142, alignment: .leading)
+        .frame(
+            width: metrics.width,
+            height: metrics.totalHeight,
+            alignment: .leading
+        )
     }
 
     private func color(for tokens: Int) -> Color {
@@ -65,6 +148,8 @@ struct ActivityHeatmap: View {
 }
 
 private struct ActivityLegend: View {
+    let cellSize: CGFloat
+
     var body: some View {
         HStack(spacing: 3) {
             Text("少")
@@ -77,7 +162,7 @@ private struct ActivityLegend: View {
                             blue: 0.42 + Double(index) * 0.18
                         )
                     )
-                    .frame(width: 8, height: 8)
+                    .frame(width: cellSize, height: cellSize)
             }
             Text("多")
         }

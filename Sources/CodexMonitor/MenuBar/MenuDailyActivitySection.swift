@@ -37,24 +37,33 @@ struct MenuDailyActivitySection: View {
 
     var body: some View {
         MenuDashboardSectionCard {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
                 MenuDashboardSectionHeader(
                     title: "每日活动",
-                    subtitle: "最近 8 周 · 每格代表一天"
+                    subtitle: "最近 8 周"
                 ) {
                     Text("56 天")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 9, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
 
                 if localUsagePresentation == .empty {
                     MenuLocalUsageEmptyState()
                 } else {
-                    HStack(alignment: .top, spacing: 24) {
-                        ActivityHeatmap(days: snapshot.dailyActivity)
-                            .frame(width: 142, alignment: .topLeading)
+                    HStack(alignment: .top, spacing: 10) {
+                        ActivityHeatmap(
+                            days: snapshot.dailyActivity,
+                            density: .compact
+                        )
 
-                        HStack(spacing: 10) {
+                        LazyVGrid(
+                            columns: [
+                                GridItem(.flexible(), spacing: 8),
+                                GridItem(.flexible(), spacing: 8)
+                            ],
+                            alignment: .leading,
+                            spacing: 6
+                        ) {
                             MenuActivityMetric(
                                 value: MetricFormatter.tokens(today?.tokens ?? 0),
                                 label: "今日 Token"
@@ -103,13 +112,13 @@ private struct MenuActivityMetric: View {
     let label: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(value)
-                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .font(.system(size: 13, weight: .bold, design: .rounded))
                 .lineLimit(1)
-                .minimumScaleFactor(0.65)
+                .minimumScaleFactor(0.55)
             Text(label)
-                .font(.system(size: 10))
+                .font(.system(size: 8))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }

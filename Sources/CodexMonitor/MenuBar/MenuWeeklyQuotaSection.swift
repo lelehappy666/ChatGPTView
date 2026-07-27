@@ -73,13 +73,13 @@ struct MenuWeeklyQuotaSection: View {
 
     var body: some View {
         MenuDashboardSectionCard {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
                 MenuDashboardSectionHeader(
                     title: "本周额度",
-                    subtitle: "Codex 本地额度数据"
+                    subtitle: "Codex 本地额度"
                 ) {
                     Button(action: onRefresh) {
-                        HStack(spacing: 6) {
+                        HStack(spacing: 4) {
                             if refreshPresentation.showsProgress {
                                 ProgressView().controlSize(.small)
                             } else {
@@ -87,10 +87,10 @@ struct MenuWeeklyQuotaSection: View {
                             }
                             Text(refreshPresentation.title)
                         }
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(MenuDashboardVisual.success)
-                        .padding(.horizontal, 10)
-                        .frame(height: 28)
+                        .padding(.horizontal, 7)
+                        .frame(height: 24)
                         .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -102,24 +102,24 @@ struct MenuWeeklyQuotaSection: View {
                     .help("立即重新扫描 Codex 本地额度数据")
                 }
 
-                HStack(alignment: .center, spacing: 20) {
+                HStack(alignment: .center, spacing: 10) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("剩余额度")
-                            .font(.system(size: 11))
+                            .font(.system(size: 9))
                             .foregroundStyle(.secondary)
                         HStack(alignment: .lastTextBaseline, spacing: 4) {
                             Text(quotaPresentation.remainingText)
-                                .font(.system(size: 38, weight: .bold, design: .rounded))
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
                             if quotaPresentation.showsRemainingUnit {
                                 Text("%")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.system(size: 12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                         }
                     }
-                    .frame(width: 146, alignment: .leading)
+                    .frame(width: 82, alignment: .leading)
 
-                    VStack(alignment: .leading, spacing: 11) {
+                    VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             Text("本周已用")
                             Spacer()
@@ -137,7 +137,7 @@ struct MenuWeeklyQuotaSection: View {
                                 }
                             }
                         }
-                        .frame(height: 9)
+                        .frame(height: 6)
 
                         HStack {
                             Text("距离重置")
@@ -146,7 +146,7 @@ struct MenuWeeklyQuotaSection: View {
                                 .fontWeight(.semibold)
                         }
                     }
-                    .font(.system(size: 11))
+                    .font(.system(size: 9))
                     .frame(maxWidth: .infinity)
                 }
             }

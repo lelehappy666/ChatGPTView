@@ -50,4 +50,13 @@ final class VisualFeedbackTests: XCTestCase {
         XCTAssertEqual(grid.suffix(3).map(\.tokens), [12_000, 0, 24_000])
         XCTAssertEqual(grid.suffix(3).map(\.sessions), [1, 0, 2])
     }
+
+    func testCompactActivityHeatmapIsShorterThanStandardLayout() {
+        let standard = ActivityHeatmapMetrics.make(density: .standard)
+        let compact = ActivityHeatmapMetrics.make(density: .compact)
+
+        XCTAssertLessThan(compact.totalHeight, standard.totalHeight)
+        XCTAssertLessThan(compact.width, standard.width)
+        XCTAssertEqual(compact.rowCount, 7)
+    }
 }

@@ -9,14 +9,18 @@ struct MenuDashboardSectionCard<Content: View>: View {
 
     var body: some View {
         content
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .frame(
+                maxWidth: .infinity,
+                maxHeight: .infinity,
+                alignment: .topLeading
+            )
             .background(
                 Color.white.opacity(0.055),
-                in: RoundedRectangle(cornerRadius: 16)
+                in: RoundedRectangle(cornerRadius: 13)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 13)
                     .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
             )
     }
@@ -28,17 +32,18 @@ struct MenuDashboardSectionHeader<Trailing: View>: View {
     @ViewBuilder let trailing: () -> Trailing
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                 if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 10))
+                        .font(.system(size: 9))
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
-            Spacer(minLength: 12)
+            Spacer(minLength: 8)
             trailing()
         }
     }
