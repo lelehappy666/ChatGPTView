@@ -109,6 +109,18 @@ final class MenuRollingNumberTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testInterpolatingQuotaProgressUsesIntermediateWidth() {
+        var progress = MenuInterpolatingQuotaProgress(
+            progress: 1,
+            availableWidth: 200
+        )
+
+        progress.animatableData = 0.5
+
+        XCTAssertEqual(progress.renderedWidth, 100)
+    }
+
     func testNumberFormatsRenderIntermediateRealtimeValues() {
         XCTAssertEqual(MenuNumberFormat.integer.string(for: 44), "44")
         XCTAssertEqual(MenuNumberFormat.groupedInteger.string(for: 1_284), "1,284")

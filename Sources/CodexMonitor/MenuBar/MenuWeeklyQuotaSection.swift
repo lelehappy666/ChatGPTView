@@ -134,11 +134,10 @@ struct MenuWeeklyQuotaSection: View {
                         GeometryReader { proxy in
                             ZStack(alignment: .leading) {
                                 Capsule().fill(Color.white.opacity(0.12))
-                                if let usedFraction = quota.usedFraction {
-                                    Capsule()
-                                        .fill(MenuDashboardVisual.accent)
-                                        .frame(width: proxy.size.width * usedFraction)
-                                }
+                                MenuAnimatedQuotaProgress(
+                                    targetProgress: quota.usedFraction,
+                                    availableWidth: proxy.size.width
+                                )
                             }
                         }
                         .frame(height: 5)
