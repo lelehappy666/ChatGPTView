@@ -72,8 +72,9 @@ struct MenuHoverCoordinator {
     }
 
     mutating func popoverDidShow() {
-        isPanelHovered = false
-        hasPanelEntered = false
+        if isPanelHovered {
+            hasPanelEntered = true
+        }
     }
 
     mutating func popoverDidClose() {

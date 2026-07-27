@@ -104,4 +104,17 @@ final class MenuHoverCoordinatorTests: XCTestCase {
             []
         )
     }
+
+    func testPanelEntryReportedBeforeDidShowIsNotResetByDidShow() {
+        var coordinator = MenuHoverCoordinator()
+        _ = coordinator.panelHoverChanged(
+            isInside: true,
+            isPopoverShown: true
+        )
+
+        coordinator.popoverDidShow()
+
+        XCTAssertTrue(coordinator.isPanelHovered)
+        XCTAssertTrue(coordinator.hasPanelEntered)
+    }
 }
