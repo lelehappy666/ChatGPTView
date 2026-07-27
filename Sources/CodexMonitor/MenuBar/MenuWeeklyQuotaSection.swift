@@ -105,7 +105,10 @@ struct MenuWeeklyQuotaSection: View {
 
                 HStack(spacing: 18) {
                     HStack(alignment: .lastTextBaseline, spacing: 3) {
-                        Text(quota.remainingText)
+                        MenuRollingNumberText(
+                            targetText: quota.remainingText,
+                            zeroText: "0"
+                        )
                             .font(.system(size: 29, weight: .bold, design: .rounded))
                             .foregroundStyle(MenuDashboardVisual.accent)
                         if quota.showsRemainingUnit {
@@ -121,7 +124,10 @@ struct MenuWeeklyQuotaSection: View {
                     VStack(spacing: 7) {
                         HStack {
                             Text("本周已用")
-                            Text(quota.usedText)
+                            MenuRollingNumberText(
+                                targetText: quota.usedText,
+                                zeroText: "0%"
+                            )
                                 .foregroundStyle(MenuDashboardVisual.accent)
                             Spacer()
                         }
@@ -140,7 +146,10 @@ struct MenuWeeklyQuotaSection: View {
 
                         HStack {
                             Text("距离重置")
-                            Text(quota.resetText)
+                            MenuRollingNumberText(
+                                targetText: quota.resetText,
+                                zeroText: "0 天 0 小时"
+                            )
                                 .foregroundStyle(MenuDashboardVisual.accent)
                             Spacer()
                         }

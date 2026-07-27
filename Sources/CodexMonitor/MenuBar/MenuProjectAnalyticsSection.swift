@@ -144,7 +144,12 @@ struct MenuProjectAnalyticsSection: View {
             HStack {
                 Text("最近 7 天")
                 Spacer()
-                Text(MetricFormatter.tokens(bars.reduce(0) { $0 + $1.tokens }))
+                MenuRollingNumberText(
+                    targetText: MetricFormatter.tokens(
+                        bars.reduce(0) { $0 + $1.tokens }
+                    ),
+                    zeroText: MetricFormatter.tokens(0)
+                )
             }
             .font(.system(size: 7.5))
             .foregroundStyle(.secondary)
@@ -217,7 +222,10 @@ struct MenuProjectAnalyticsSection: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 4)
-                    Text(MetricFormatter.tokens(row.tokens))
+                    MenuRollingNumberText(
+                        targetText: MetricFormatter.tokens(row.tokens),
+                        zeroText: MetricFormatter.tokens(0)
+                    )
                         .font(.system(size: 8.5, weight: .medium, design: .rounded))
                 }
                 .padding(.horizontal, 5)

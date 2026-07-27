@@ -12,6 +12,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate, AppSurfaceControllin
         withLength: MenuBarLayout.statusItemWidth
     )
     private let popover = NSPopover()
+    private let numberAnimationContext = MenuNumberAnimationContext()
     private var hostingView: NSHostingView<MenuBarContentView>?
     private var hoverCoordinator = MenuHoverCoordinator()
     private var hoverOpenTask: Task<Void, Never>?
@@ -49,6 +50,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate, AppSurfaceControllin
         popover.delegate = self
         let rootView = MenuDashboardView(
             store: store,
+            numberAnimationContext: numberAnimationContext,
             onClose: { [weak self] in self?.closePopover() },
             onQuit: { NSApp.terminate(nil) },
             onHoverChanged: { [weak self] isInside in
@@ -90,6 +92,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate, AppSurfaceControllin
         if MenuPopoverOpenPolicy.shouldRefresh(isShown: popover.isShown) {
             store.requestRefresh()
         }
+        numberAnimationContext.beginPresentation()
         popover.show(
             relativeTo: button.bounds,
             of: button,

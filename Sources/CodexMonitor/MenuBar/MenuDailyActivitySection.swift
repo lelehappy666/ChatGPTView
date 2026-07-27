@@ -86,24 +86,28 @@ struct MenuDailyActivitySection: View {
                             MenuActivityMetric(
                                 icon: "clock",
                                 value: MetricFormatter.tokens(today?.tokens ?? 0),
+                                zeroValue: MetricFormatter.tokens(0),
                                 label: "今天"
                             )
                             Divider()
                             MenuActivityMetric(
                                 icon: "person.2",
                                 value: "\(today?.sessions ?? 0)",
+                                zeroValue: "0",
                                 label: "会话"
                             )
                             Divider()
                             MenuActivityMetric(
                                 icon: "chart.xyaxis.line",
                                 value: MetricFormatter.tokens(averageTokens),
+                                zeroValue: MetricFormatter.tokens(0),
                                 label: "平均/天"
                             )
                             Divider()
                             MenuActivityMetric(
                                 icon: "flame",
                                 value: "\(snapshot.currentStreakDays) 天",
+                                zeroValue: "0 天",
                                 label: "连续使用"
                             )
                         }
@@ -246,6 +250,7 @@ struct MenuLocalUsageEmptyState: View {
 private struct MenuActivityMetric: View {
     let icon: String
     let value: String
+    let zeroValue: String
     let label: String
 
     var body: some View {
@@ -258,7 +263,10 @@ private struct MenuActivityMetric: View {
                 .font(.system(size: 8))
                 .foregroundStyle(.secondary)
             Spacer()
-            Text(value)
+            MenuRollingNumberText(
+                targetText: value,
+                zeroText: zeroValue
+            )
                 .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .foregroundStyle(MenuDashboardVisual.accent)
                 .lineLimit(1)

@@ -129,7 +129,10 @@ private struct MenuGitHubActivityContent: View {
 
             HStack(alignment: .top, spacing: 8) {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(snapshot.totalContributions.formatted())
+                    MenuRollingNumberText(
+                        targetText: snapshot.totalContributions.formatted(),
+                        zeroText: "0"
+                    )
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundStyle(MenuDashboardVisual.accent)
                     Text("次贡献")

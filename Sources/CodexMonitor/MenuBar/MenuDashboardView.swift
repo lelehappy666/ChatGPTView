@@ -20,6 +20,7 @@ enum MenuDashboardComposition {
 
 struct MenuDashboardView: View {
     @ObservedObject var store: MonitorStore
+    @ObservedObject var numberAnimationContext: MenuNumberAnimationContext
     let onClose: () -> Void
     let onQuit: () -> Void
     let onHoverChanged: (Bool) -> Void
@@ -45,6 +46,7 @@ struct MenuDashboardView: View {
         }
         .foregroundStyle(Color.white)
         .environment(\.colorScheme, .dark)
+        .environmentObject(numberAnimationContext)
         .background(Color.black)
         .contentShape(Rectangle())
         .onHover(perform: onHoverChanged)
