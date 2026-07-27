@@ -2,6 +2,11 @@ import XCTest
 @testable import CodexMonitor
 
 final class MenuRollingNumberTests: XCTestCase {
+    func testAnimationTimingKeepsNumbersReadable() {
+        XCTAssertEqual(MenuAnimationTiming.numberDuration, 1.2)
+        XCTAssertEqual(MenuAnimationTiming.chartDuration, 1.0)
+    }
+
     @MainActor
     func testEveryPresentationAdvancesAnimationCycle() {
         let context = MenuNumberAnimationContext()

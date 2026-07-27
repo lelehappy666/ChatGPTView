@@ -370,7 +370,9 @@ private struct MenuAnimatedTokenBar: View {
         animationTask = Task { @MainActor in
             await Task.yield()
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.45)) {
+            withAnimation(
+                .easeOut(duration: MenuAnimationTiming.chartDuration)
+            ) {
                 displayedProgress = normalizedTarget
             }
         }
@@ -383,7 +385,9 @@ private struct MenuAnimatedTokenBar: View {
             setWithoutAnimation(normalizedTarget)
             return
         }
-        withAnimation(.easeOut(duration: 0.45)) {
+        withAnimation(
+            .easeOut(duration: MenuAnimationTiming.chartDuration)
+        ) {
             displayedProgress = normalizedTarget
         }
     }

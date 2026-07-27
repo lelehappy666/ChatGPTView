@@ -1,6 +1,11 @@
 import Combine
 import SwiftUI
 
+enum MenuAnimationTiming {
+    static let numberDuration = 1.2
+    static let chartDuration = 1.0
+}
+
 @MainActor
 final class MenuNumberAnimationContext: ObservableObject {
     @Published private(set) var cycle = 0
@@ -70,7 +75,9 @@ struct MenuRollingNumberText: View {
         animationTask = Task { @MainActor in
             await Task.yield()
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.45)) {
+            withAnimation(
+                .easeOut(duration: MenuAnimationTiming.numberDuration)
+            ) {
                 displayedText = targetText
             }
         }
@@ -85,7 +92,9 @@ struct MenuRollingNumberText: View {
             return
         }
 
-        withAnimation(.easeOut(duration: 0.45)) {
+        withAnimation(
+            .easeOut(duration: MenuAnimationTiming.numberDuration)
+        ) {
             displayedText = targetText
         }
     }
