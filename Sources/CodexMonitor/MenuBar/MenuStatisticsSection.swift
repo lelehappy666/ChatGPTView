@@ -19,32 +19,32 @@ struct MenuStatisticsSection: View {
                     HStack(spacing: 7) {
                         metric(
                             icon: "cylinder.split.1x2",
-                            value: MetricFormatter.tokens(snapshot.lifetimeTokens),
-                            zeroValue: MetricFormatter.tokens(0),
+                            value: Double(snapshot.lifetimeTokens),
+                            format: .tokens,
                             label: "累计 Token 数"
                         )
                         metric(
                             icon: "chart.line.uptrend.xyaxis",
-                            value: MetricFormatter.tokens(snapshot.peakTokens),
-                            zeroValue: MetricFormatter.tokens(0),
+                            value: Double(snapshot.peakTokens),
+                            format: .tokens,
                             label: "峰值 Token 数"
                         )
                         metric(
                             icon: "clock",
-                            value: MetricFormatter.duration(snapshot.longestTaskDuration),
-                            zeroValue: MetricFormatter.duration(0),
+                            value: snapshot.longestTaskDuration,
+                            format: .duration,
                             label: "最长任务时长"
                         )
                         metric(
                             icon: "calendar",
-                            value: "\(snapshot.currentStreakDays) 天",
-                            zeroValue: "0 天",
+                            value: Double(snapshot.currentStreakDays),
+                            format: .days,
                             label: "当前连续天数"
                         )
                         metric(
                             icon: "medal.star",
-                            value: "\(snapshot.longestStreakDays) 天",
-                            zeroValue: "0 天",
+                            value: Double(snapshot.longestStreakDays),
+                            format: .days,
                             label: "最长连续天数"
                         )
                     }
@@ -55,8 +55,8 @@ struct MenuStatisticsSection: View {
 
     private func metric(
         icon: String,
-        value: String,
-        zeroValue: String,
+        value: Double,
+        format: MenuNumberFormat,
         label: String
     ) -> some View {
         VStack(spacing: 2) {
@@ -64,8 +64,8 @@ struct MenuStatisticsSection: View {
                 .font(.system(size: 12))
                 .foregroundStyle(MenuDashboardVisual.accent)
             MenuRollingNumberText(
-                targetText: value,
-                zeroText: zeroValue
+                value: value,
+                format: format
             )
                 .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(MenuDashboardVisual.accent)

@@ -130,8 +130,8 @@ private struct MenuGitHubActivityContent: View {
             HStack(alignment: .top, spacing: 8) {
                 VStack(alignment: .leading, spacing: 1) {
                     MenuRollingNumberText(
-                        targetText: snapshot.totalContributions.formatted(),
-                        zeroText: "0"
+                        value: Double(snapshot.totalContributions),
+                        format: .groupedInteger
                     )
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundStyle(MenuDashboardVisual.accent)

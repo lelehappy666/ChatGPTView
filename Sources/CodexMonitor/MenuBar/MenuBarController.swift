@@ -92,7 +92,6 @@ final class MenuBarController: NSObject, NSPopoverDelegate, AppSurfaceControllin
         if MenuPopoverOpenPolicy.shouldRefresh(isShown: popover.isShown) {
             store.requestRefresh()
         }
-        numberAnimationContext.beginPresentation()
         popover.show(
             relativeTo: button.bounds,
             of: button,
@@ -102,6 +101,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate, AppSurfaceControllin
 
     func popoverDidShow(_ notification: Notification) {
         hoverCoordinator.popoverDidShow()
+        numberAnimationContext.beginPresentation()
         updateButtonAccessibility()
     }
 

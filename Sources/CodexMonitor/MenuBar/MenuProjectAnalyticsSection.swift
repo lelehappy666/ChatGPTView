@@ -158,10 +158,8 @@ struct MenuProjectAnalyticsSection: View {
                 Text("最近 7 天")
                 Spacer()
                 MenuRollingNumberText(
-                    targetText: MetricFormatter.tokens(
-                        bars.reduce(0) { $0 + $1.tokens }
-                    ),
-                    zeroText: MetricFormatter.tokens(0)
+                    value: Double(bars.reduce(0) { $0 + $1.tokens }),
+                    format: .tokens
                 )
             }
             .font(.system(size: 7.5))
@@ -223,8 +221,8 @@ struct MenuProjectAnalyticsSection: View {
                         .truncationMode(.middle)
                     Spacer(minLength: 4)
                     MenuRollingNumberText(
-                        targetText: MetricFormatter.tokens(row.tokens),
-                        zeroText: MetricFormatter.tokens(0)
+                        value: Double(row.tokens),
+                        format: .tokens
                     )
                         .font(.system(size: 8.5, weight: .medium, design: .rounded))
                 }

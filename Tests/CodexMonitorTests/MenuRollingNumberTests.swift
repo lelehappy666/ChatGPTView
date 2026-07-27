@@ -19,37 +19,52 @@ final class MenuRollingNumberTests: XCTestCase {
         XCTAssertEqual(context.cycle, 2)
     }
 
-    func testAnimatedPresentationStartsAtMatchingZeroText() {
+    func testAnimatedPresentationStartsAtZeroValue() {
         XCTAssertEqual(
-            MenuNumberAnimationPlan.initialText(
-                targetText: "85%",
-                zeroText: "0%",
+            MenuNumberAnimationPlan.initialValue(
+                targetValue: 85,
                 reduceMotion: false
             ),
-            "0%"
+            0
         )
     }
 
-    func testReducedMotionStartsAtFinalText() {
+    func testReducedMotionStartsAtFinalValue() {
         XCTAssertEqual(
-            MenuNumberAnimationPlan.initialText(
-                targetText: "6 天 16 小时",
-                zeroText: "0 天 0 小时",
+            MenuNumberAnimationPlan.initialValue(
+                targetValue: 160,
                 reduceMotion: true
             ),
-            "6 天 16 小时"
+            160
         )
     }
 
-    func testPlaceholderNeverAnimatesFromNumericZero() {
+    func testNumberFormatsRenderIntermediateRealtimeValues() {
+        XCTAssertEqual(MenuNumberFormat.integer.string(for: 44), "44")
+        XCTAssertEqual(MenuNumberFormat.groupedInteger.string(for: 1_284), "1,284")
+        XCTAssertEqual(MenuNumberFormat.percentage.string(for: 66), "66%")
+        XCTAssertEqual(MenuNumberFormat.tokens.string(for: 50_000), "5 万")
+        XCTAssertEqual(MenuNumberFormat.days.string(for: 3), "3 天")
         XCTAssertEqual(
-            MenuNumberAnimationPlan.initialText(
-                targetText: "—",
-                zeroText: "0",
-                reduceMotion: false
-            ),
-            "—"
+            MenuNumberFormat.duration.string(for: 6_900),
+            "1 小时 55 分"
         )
+        XCTAssertEqual(
+            MenuNumberFormat.resetCountdown.string(for: 183_600),
+            "2 天 3 小时"
+        )
+    }
+
+    @MainActor
+    func testAnimatableTextUsesInterpolatedValueInsteadOfFinalString() {
+        var text = MenuInterpolatingNumberText(
+            value: 100,
+            format: .percentage
+        )
+
+        text.animatableData = 50
+
+        XCTAssertEqual(text.renderedText, "50%")
     }
 
     func testAnimatedChartPresentationStartsAtZeroProgress() {

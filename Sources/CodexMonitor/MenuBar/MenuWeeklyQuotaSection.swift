@@ -2,41 +2,40 @@ import Combine
 import SwiftUI
 
 struct MenuWeeklyQuotaPresentation: Equatable {
-    let remainingText: String
+    let remainingValue: Double?
     let showsRemainingUnit: Bool
-    let usedText: String
+    let usedValue: Double?
     let usedFraction: Double?
-    let resetText: String
+    let resetSeconds: Double?
     let isFresh: Bool
 
     static func make(quota: WeeklyQuota, now: Date) -> Self {
         let state = QuotaFreshnessPolicy.displayState(for: quota, at: now)
         guard let remaining = state.remainingPercent else {
             return Self(
-                remainingText: "—",
+                remainingValue: nil,
                 showsRemainingUnit: false,
-                usedText: "—",
+                usedValue: nil,
                 usedFraction: nil,
-                resetText: "—",
+                resetSeconds: nil,
                 isFresh: false
             )
         }
 
         let usedPercent = max(0, min(100, 100 - remaining))
-        let resetText: String
+        let resetSeconds: Double?
         if let resetDate = quota.resetsAt {
-            let seconds = max(0, Int(resetDate.timeIntervalSince(now)))
-            resetText = "\(seconds / 86_400) 天 \((seconds % 86_400) / 3_600) 小时"
+            resetSeconds = max(0, resetDate.timeIntervalSince(now))
         } else {
-            resetText = "—"
+            resetSeconds = nil
         }
 
         return Self(
-            remainingText: String(Int(remaining.rounded())),
+            remainingValue: remaining,
             showsRemainingUnit: true,
-            usedText: "\(Int(usedPercent.rounded()))%",
+            usedValue: usedPercent,
             usedFraction: usedPercent / 100,
-            resetText: resetText,
+            resetSeconds: resetSeconds,
             isFresh: state.isFresh
         )
     }
@@ -106,8 +105,8 @@ struct MenuWeeklyQuotaSection: View {
                 HStack(spacing: 18) {
                     HStack(alignment: .lastTextBaseline, spacing: 3) {
                         MenuRollingNumberText(
-                            targetText: quota.remainingText,
-                            zeroText: "0"
+                            value: quota.remainingValue,
+                            format: .integer
                         )
                             .font(.system(size: 29, weight: .bold, design: .rounded))
                             .foregroundStyle(MenuDashboardVisual.accent)
@@ -125,8 +124,8 @@ struct MenuWeeklyQuotaSection: View {
                         HStack {
                             Text("本周已用")
                             MenuRollingNumberText(
-                                targetText: quota.usedText,
-                                zeroText: "0%"
+                                value: quota.usedValue,
+                                format: .percentage
                             )
                                 .foregroundStyle(MenuDashboardVisual.accent)
                             Spacer()
@@ -147,8 +146,8 @@ struct MenuWeeklyQuotaSection: View {
                         HStack {
                             Text("距离重置")
                             MenuRollingNumberText(
-                                targetText: quota.resetText,
-                                zeroText: "0 天 0 小时"
+                                value: quota.resetSeconds,
+                                format: .resetCountdown
                             )
                                 .foregroundStyle(MenuDashboardVisual.accent)
                             Spacer()

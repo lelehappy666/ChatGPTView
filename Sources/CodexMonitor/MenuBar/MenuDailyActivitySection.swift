@@ -85,29 +85,29 @@ struct MenuDailyActivitySection: View {
                         VStack(spacing: 0) {
                             MenuActivityMetric(
                                 icon: "clock",
-                                value: MetricFormatter.tokens(today?.tokens ?? 0),
-                                zeroValue: MetricFormatter.tokens(0),
+                                value: Double(today?.tokens ?? 0),
+                                format: .tokens,
                                 label: "今天"
                             )
                             Divider()
                             MenuActivityMetric(
                                 icon: "person.2",
-                                value: "\(today?.sessions ?? 0)",
-                                zeroValue: "0",
+                                value: Double(today?.sessions ?? 0),
+                                format: .integer,
                                 label: "会话"
                             )
                             Divider()
                             MenuActivityMetric(
                                 icon: "chart.xyaxis.line",
-                                value: MetricFormatter.tokens(averageTokens),
-                                zeroValue: MetricFormatter.tokens(0),
+                                value: Double(averageTokens),
+                                format: .tokens,
                                 label: "平均/天"
                             )
                             Divider()
                             MenuActivityMetric(
                                 icon: "flame",
-                                value: "\(snapshot.currentStreakDays) 天",
-                                zeroValue: "0 天",
+                                value: Double(snapshot.currentStreakDays),
+                                format: .days,
                                 label: "连续使用"
                             )
                         }
@@ -249,8 +249,8 @@ struct MenuLocalUsageEmptyState: View {
 
 private struct MenuActivityMetric: View {
     let icon: String
-    let value: String
-    let zeroValue: String
+    let value: Double
+    let format: MenuNumberFormat
     let label: String
 
     var body: some View {
@@ -264,8 +264,8 @@ private struct MenuActivityMetric: View {
                 .foregroundStyle(.secondary)
             Spacer()
             MenuRollingNumberText(
-                targetText: value,
-                zeroText: zeroValue
+                value: value,
+                format: format
             )
                 .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .foregroundStyle(MenuDashboardVisual.accent)

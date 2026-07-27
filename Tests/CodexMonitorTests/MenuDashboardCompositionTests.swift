@@ -44,11 +44,11 @@ final class MenuDashboardCompositionTests: XCTestCase {
             now: now
         )
 
-        XCTAssertEqual(presentation.remainingText, "34")
+        XCTAssertEqual(presentation.remainingValue, 34)
         XCTAssertTrue(presentation.showsRemainingUnit)
-        XCTAssertEqual(presentation.usedText, "66%")
+        XCTAssertEqual(presentation.usedValue, 66)
         XCTAssertEqual(presentation.usedFraction, 0.66)
-        XCTAssertEqual(presentation.resetText, "2 天 3 小时")
+        XCTAssertEqual(presentation.resetSeconds, 183_600)
         XCTAssertTrue(presentation.isFresh)
     }
 
@@ -65,11 +65,11 @@ final class MenuDashboardCompositionTests: XCTestCase {
             now: now
         )
 
-        XCTAssertEqual(presentation.remainingText, "77")
+        XCTAssertEqual(presentation.remainingValue, 77)
         XCTAssertTrue(presentation.showsRemainingUnit)
-        XCTAssertEqual(presentation.usedText, "23%")
+        XCTAssertEqual(presentation.usedValue, 23)
         XCTAssertEqual(presentation.usedFraction, 0.23)
-        XCTAssertEqual(presentation.resetText, "2 天 0 小时")
+        XCTAssertEqual(presentation.resetSeconds, 172_800)
         XCTAssertFalse(presentation.isFresh)
     }
 
@@ -84,11 +84,11 @@ final class MenuDashboardCompositionTests: XCTestCase {
             now: now
         )
 
-        XCTAssertEqual(presentation.remainingText, "—")
+        XCTAssertNil(presentation.remainingValue)
         XCTAssertFalse(presentation.showsRemainingUnit)
-        XCTAssertEqual(presentation.usedText, "—")
+        XCTAssertNil(presentation.usedValue)
         XCTAssertNil(presentation.usedFraction)
-        XCTAssertEqual(presentation.resetText, "—")
+        XCTAssertNil(presentation.resetSeconds)
         XCTAssertFalse(presentation.isFresh)
     }
 
