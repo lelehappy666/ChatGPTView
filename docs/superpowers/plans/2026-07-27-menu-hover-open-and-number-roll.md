@@ -336,38 +336,13 @@ git commit -m "功能：新增菜单数字滚动组件"
 - 修改：`Sources/CodexMonitor/MenuBar/MenuProjectAnalyticsSection.swift`
 - 修改：`Sources/CodexMonitor/MenuBar/MenuStatisticsSection.swift`
 - 修改：`Sources/CodexMonitor/MenuBar/MenuGitHubActivitySection.swift`
-- 修改：`Tests/CodexMonitorTests/AppIntegrationTests.swift`
 
 **接口：**
 
 - 消费：`MenuNumberAnimationContext` 与 `MenuRollingNumberText`。
 - 产生：每个下拉面板展示周期和每次数值更新对应的数字滚动。
 
-- [ ] **步骤 1：编写失败的面板接入测试**
-
-在 `AppIntegrationTests` 中读取菜单数据区源码，验证以下内容：
-
-```swift
-XCTAssertTrue(controller.contains("numberAnimationContext.beginPresentation()"))
-XCTAssertTrue(dashboard.contains(".environmentObject(numberAnimationContext)"))
-XCTAssertTrue(weekly.contains("MenuRollingNumberText"))
-XCTAssertTrue(daily.contains("MenuRollingNumberText"))
-XCTAssertTrue(project.contains("MenuRollingNumberText"))
-XCTAssertTrue(statistics.contains("MenuRollingNumberText"))
-XCTAssertTrue(github.contains("MenuRollingNumberText"))
-```
-
-- [ ] **步骤 2：运行测试并确认失败**
-
-运行：
-
-```bash
-swift test --filter AppIntegrationTests
-```
-
-预期：因为控制器尚未触发展示周期、数据区尚未使用统一组件而失败。
-
-- [ ] **步骤 3：把动画上下文传入面板**
+- [ ] **步骤 1：把已验证的动画上下文传入面板**
 
 `MenuBarController` 持有一个 `MenuNumberAnimationContext`，传给 `MenuDashboardView`。统一展示方法在调用 `popover.show` 前执行：
 
@@ -381,7 +356,7 @@ numberAnimationContext.beginPresentation()
 .environmentObject(numberAnimationContext)
 ```
 
-- [ ] **步骤 4：替换所有动态指标文本**
+- [ ] **步骤 2：替换所有动态指标文本**
 
 使用 `MenuRollingNumberText` 替换：
 
@@ -393,17 +368,18 @@ numberAnimationContext.beginPresentation()
 
 每个位置提供与格式匹配的零值。静态筛选、日期、星期、仓库更新时间和悬停说明保持 `Text`。
 
-- [ ] **步骤 5：运行面板测试并提交**
+- [ ] **步骤 3：运行真实组件、布局与集成测试并提交**
 
 运行：
 
 ```bash
+swift test --filter MenuRollingNumberTests
 swift test --filter AppIntegrationTests
 swift test --filter MenuDashboardCompositionTests
 swift test --filter MenuPopoverLayoutTests
 ```
 
-预期：全部通过，面板布局契约未变化。
+预期：全部通过，数字状态行为正确，所有具体 SwiftUI 数据区完成编译，面板布局契约未变化。
 
 提交：
 
@@ -414,8 +390,7 @@ git add Sources/CodexMonitor/MenuBar/MenuBarController.swift \
   Sources/CodexMonitor/MenuBar/MenuDailyActivitySection.swift \
   Sources/CodexMonitor/MenuBar/MenuProjectAnalyticsSection.swift \
   Sources/CodexMonitor/MenuBar/MenuStatisticsSection.swift \
-  Sources/CodexMonitor/MenuBar/MenuGitHubActivitySection.swift \
-  Tests/CodexMonitorTests/AppIntegrationTests.swift
+  Sources/CodexMonitor/MenuBar/MenuGitHubActivitySection.swift
 git commit -m "界面：为菜单数据增加数字滚动"
 ```
 
