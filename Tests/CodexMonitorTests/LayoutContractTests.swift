@@ -2,21 +2,12 @@ import XCTest
 @testable import CodexMonitor
 
 final class LayoutContractTests: XCTestCase {
-    func testDashboardContractLeavesStatisticsSafetySpace() {
-        XCTAssertEqual(NotchLayout.size, CGSize(width: 420, height: 320))
-        XCTAssertEqual(NotchLayout.pageContentHeight, 236)
-        XCTAssertGreaterThanOrEqual(NotchLayout.statisticsBottomSafeArea, 14)
-        XCTAssertEqual(NotchLayout.pageCount, 5)
-    }
-
-    func testGitHubLoadWaitsUntilPageTransitionFinishes() {
+    func testMenuPopoverContentSizeFitsVisibleScreen() {
         XCTAssertEqual(
-            GitHubPageLoadPolicy.delayMilliseconds(reduceMotion: false),
-            220
-        )
-        XCTAssertEqual(
-            GitHubPageLoadPolicy.delayMilliseconds(reduceMotion: true),
-            0
+            MenuPopoverLayout.contentSize(
+                for: CGRect(x: 0, y: 0, width: 800, height: 700)
+            ),
+            CGSize(width: 720, height: 676)
         )
     }
 

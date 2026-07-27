@@ -6,7 +6,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: MonitorStore?
     private var watcher: SessionDirectoryWatcher?
     private var menuBarController: MenuBarController?
-    private var notchWindowController: NotchWindowController?
     private var periodicRefreshCancellable: AnyCancellable?
     private var wakeObserver: NSObjectProtocol?
     private let completionNotifier = ProjectCompletionNotifier()
@@ -62,10 +61,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBarController.start()
         self.menuBarController = menuBarController
 
-        let notchWindowController = NotchWindowController(store: store)
-        notchWindowController.start()
-        self.notchWindowController = notchWindowController
-
         store.requestRefresh()
     }
 
@@ -76,7 +71,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
         }
         watcher?.stop()
-        notchWindowController?.stop()
     }
 
     private func scheduleCompletionNotification(for session: SessionActivity) {
