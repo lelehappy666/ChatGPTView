@@ -126,7 +126,7 @@ git commit -m "构建：增加稳定签名身份解析"
 **文件：**
 
 - 新建：`scripts/setup-local-signing.sh`
-- 修改：`Tests/CodexMonitorTests/AppIntegrationTests.swift`
+- 新建：`Tests/Scripts/setup-local-signing-tests.sh`
 
 **接口：**
 
@@ -134,45 +134,97 @@ git commit -m "构建：增加稳定签名身份解析"
 - 已存在有效身份：直接成功退出
 - 不存在：生成证书、导入登录钥匙串、配置代码签名信任、清理临时文件
 
-- [ ] **步骤1：编写失败的设置脚本契约测试**
+- [ ] **步骤1：编写失败的隔离 Shell 行为测试**
 
-在 `AppIntegrationTests` 中增加：
+`Tests/Scripts/setup-local-signing-tests.sh` 使用临时 `PATH` 提供假的 `security` 与 `openssl`，执行真实设置脚本并断言：
 
-```swift
-func testLocalSigningSetupKeepsPrivateMaterialOutOfRepository() throws {
-    let root = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let source = try String(
-        contentsOf: root.appendingPathComponent(
-            "scripts/setup-local-signing.sh"
-        ),
-        encoding: .utf8
-    )
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-    XCTAssertTrue(source.contains("Codex Monitor Local Signing"))
-    XCTAssertTrue(source.contains("mktemp -d"))
-    XCTAssertTrue(source.contains("umask 077"))
-    XCTAssertTrue(source.contains("trap 'rm -rf"))
-    XCTAssertTrue(source.contains("extendedKeyUsage=codeSigning"))
-    XCTAssertTrue(source.contains("-T /usr/bin/codesign"))
-    XCTAssertTrue(source.contains("-p codeSign"))
-    XCTAssertFalse(source.contains("github-access-token"))
-}
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+TEST_ROOT="$(mktemp -d)"
+trap 'rm -rf "$TEST_ROOT"' EXIT
+FAKE_BIN="$TEST_ROOT/bin"
+COMMAND_LOG="$TEST_ROOT/commands.log"
+mkdir -p "$FAKE_BIN"
+touch "$COMMAND_LOG"
+export COMMAND_LOG
+export MOCK_KEYCHAIN="$TEST_ROOT/login.keychain-db"
+export IDENTITY_MARKER="$TEST_ROOT/identity-created"
+mkdir -p "$TEST_ROOT/tmp"
+
+cat >"$FAKE_BIN/security" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+    find-identity)
+        [[ "${MOCK_IDENTITY_EXISTS:-0}" == "1" || -f "$IDENTITY_MARKER" ]] &&
+            printf '  1) ABC "Codex Monitor Local Signing"\n'
+        ;;
+    default-keychain)
+        printf '"%s"\n' "$MOCK_KEYCHAIN"
+        ;;
+    import|add-trusted-cert)
+        [[ "$1" == "import" ]] && touch "$IDENTITY_MARKER"
+        printf 'security' >>"$COMMAND_LOG"
+        printf ' <%s>' "$@" >>"$COMMAND_LOG"
+        printf '\n' >>"$COMMAND_LOG"
+        ;;
+esac
+STUB
+chmod +x "$FAKE_BIN/security"
+
+cat >"$FAKE_BIN/openssl" <<'STUB'
+#!/usr/bin/env bash
+printf 'openssl' >>"$COMMAND_LOG"
+printf ' <%s>' "$@" >>"$COMMAND_LOG"
+printf '\n' >>"$COMMAND_LOG"
+while (($#)); do
+    case "$1" in
+        -keyout|-out)
+            target="$2"
+            printf '临时测试材料\n' >"$target"
+            shift 2
+            ;;
+        *) shift ;;
+    esac
+done
+STUB
+chmod +x "$FAKE_BIN/openssl"
+
+PATH="$FAKE_BIN:$PATH" TMPDIR="$TEST_ROOT/tmp" \
+    bash "$ROOT/scripts/setup-local-signing.sh"
+
+grep -F '<import>' "$COMMAND_LOG"
+grep -F '<-T> </usr/bin/codesign>' "$COMMAND_LOG"
+grep -F '<add-trusted-cert>' "$COMMAND_LOG"
+grep -F '<-p> <codeSign>' "$COMMAND_LOG"
+grep -F '<extendedKeyUsage=codeSigning>' "$COMMAND_LOG"
+
+if find "$TEST_ROOT/tmp" -type f \
+    \( -name 'private-key.pem' -o -name 'certificate.pem' \) \
+    | grep -q .; then
+    echo "临时签名材料未清理"
+    exit 1
+fi
+
+: >"$COMMAND_LOG"
+rm -f "$IDENTITY_MARKER"
+MOCK_IDENTITY_EXISTS=1 PATH="$FAKE_BIN:$PATH" \
+    bash "$ROOT/scripts/setup-local-signing.sh"
+if grep -Fq 'openssl' "$COMMAND_LOG"; then
+    echo "已有身份时不应重新生成"
+    exit 1
+fi
 ```
 
 - [ ] **步骤2：运行测试并确认正确失败**
 
 ```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-CLANG_MODULE_CACHE_PATH=/tmp/codex-monitor-clang-cache \
-SWIFT_MODULECACHE_PATH=/tmp/codex-monitor-swift-cache \
-xcrun swift test --disable-sandbox \
-  --filter AppIntegrationTests/testLocalSigningSetupKeepsPrivateMaterialOutOfRepository
+bash Tests/Scripts/setup-local-signing-tests.sh
 ```
 
-预期：测试抛出文件不存在错误。
+预期：失败，提示 `scripts/setup-local-signing.sh` 不存在。
 
 - [ ] **步骤3：实现一次性设置脚本**
 
@@ -220,16 +272,11 @@ security find-identity -v -p codesigning "$LOGIN_KEYCHAIN" \
 echo "本地签名身份创建完成：$LOCAL_SIGNING_IDENTITY"
 ```
 
-- [ ] **步骤4：运行无副作用语法检查和目标测试**
+- [ ] **步骤4：运行无副作用语法检查和隔离行为测试**
 
 ```bash
 bash -n scripts/setup-local-signing.sh
-
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-CLANG_MODULE_CACHE_PATH=/tmp/codex-monitor-clang-cache \
-SWIFT_MODULECACHE_PATH=/tmp/codex-monitor-swift-cache \
-xcrun swift test --disable-sandbox \
-  --filter AppIntegrationTests/testLocalSigningSetupKeepsPrivateMaterialOutOfRepository
+bash Tests/Scripts/setup-local-signing-tests.sh
 ```
 
 预期：语法检查与目标测试通过。
@@ -238,7 +285,7 @@ xcrun swift test --disable-sandbox \
 
 ```bash
 git add scripts/setup-local-signing.sh \
-  Tests/CodexMonitorTests/AppIntegrationTests.swift
+  Tests/Scripts/setup-local-signing-tests.sh
 git commit -m "构建：增加本地签名身份设置"
 ```
 
@@ -248,62 +295,79 @@ git commit -m "构建：增加本地签名身份设置"
 
 **文件：**
 
+- 新建：`scripts/sign-app.sh`
+- 新建：`Tests/Scripts/sign-app-tests.sh`
 - 修改：`scripts/package-app.sh`
-- 修改：`Tests/CodexMonitorTests/AppIntegrationTests.swift`
 
 **接口：**
 
 - 消费：`resolve_signing_identity()`
+- 命令：`bash scripts/sign-app.sh <应用路径>`
 - 产出：使用稳定身份签名的 `dist/Codex Monitor.app`
 
-- [ ] **步骤1：编写失败的打包安全测试**
+- [ ] **步骤1：编写失败的签名行为测试**
 
-在 `AppIntegrationTests` 中增加：
+`Tests/Scripts/sign-app-tests.sh` 执行真实签名脚本，以假的 `codesign` 记录参数并返回可控指定要求：
 
-```swift
-func testPackagingRequiresStableSigningIdentity() throws {
-    let root = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let source = try String(
-        contentsOf: root.appendingPathComponent("scripts/package-app.sh"),
-        encoding: .utf8
-    )
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-    XCTAssertTrue(source.contains("source \"$SCRIPT_DIR/signing-identity.sh\""))
-    XCTAssertTrue(source.contains("SIGNING_IDENTITY=\"$(resolve_signing_identity)\""))
-    XCTAssertTrue(source.contains("--sign \"$SIGNING_IDENTITY\""))
-    XCTAssertTrue(source.contains("codesign --verify --deep --strict"))
-    XCTAssertFalse(source.contains("--sign -"))
-}
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+TEST_ROOT="$(mktemp -d)"
+trap 'rm -rf "$TEST_ROOT"' EXIT
+FAKE_BIN="$TEST_ROOT/bin"
+COMMAND_LOG="$TEST_ROOT/codesign.log"
+APP="$TEST_ROOT/Codex Monitor.app"
+mkdir -p "$FAKE_BIN" "$APP"
+export COMMAND_LOG
+
+cat >"$FAKE_BIN/codesign" <<'STUB'
+#!/usr/bin/env bash
+printf 'codesign' >>"$COMMAND_LOG"
+printf ' <%s>' "$@" >>"$COMMAND_LOG"
+printf '\n' >>"$COMMAND_LOG"
+if [[ "$1" == "-d" ]]; then
+    printf '%s\n' "$MOCK_REQUIREMENT" >&2
+fi
+STUB
+chmod +x "$FAKE_BIN/codesign"
+
+export CODE_SIGN_IDENTITY="Stable Test Identity"
+export MOCK_REQUIREMENT='# designated => identifier "com.dafeng.codexmonitor" and anchor trusted'
+PATH="$FAKE_BIN:$PATH" bash "$ROOT/scripts/sign-app.sh" "$APP"
+
+grep -F '<--sign> <Stable Test Identity>' "$COMMAND_LOG"
+grep -F '<--verify> <--deep> <--strict>' "$COMMAND_LOG"
+
+export MOCK_REQUIREMENT='# designated => cdhash H"1234"'
+if PATH="$FAKE_BIN:$PATH" bash "$ROOT/scripts/sign-app.sh" "$APP"; then
+    echo "临时 cdhash 指定要求不应通过"
+    exit 1
+fi
 ```
 
 - [ ] **步骤2：运行测试并确认正确失败**
 
 ```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-CLANG_MODULE_CACHE_PATH=/tmp/codex-monitor-clang-cache \
-SWIFT_MODULECACHE_PATH=/tmp/codex-monitor-swift-cache \
-xcrun swift test --disable-sandbox \
-  --filter AppIntegrationTests/testPackagingRequiresStableSigningIdentity
+bash Tests/Scripts/sign-app-tests.sh
 ```
 
-预期：断言失败，因为打包脚本仍使用 `--sign -`。
+预期：失败，提示 `scripts/sign-app.sh` 不存在。
 
-- [ ] **步骤3：修改打包脚本**
+- [ ] **步骤3：实现独立签名脚本**
 
-在脚本开头解析身份：
+`scripts/sign-app.sh`：
 
 ```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/signing-identity.sh"
+APP="${1:?请提供应用路径}"
 SIGNING_IDENTITY="$(resolve_signing_identity)"
-```
 
-签名和验证改为：
-
-```bash
 codesign --force --deep --options runtime --timestamp=none \
     --sign "$SIGNING_IDENTITY" "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
@@ -315,24 +379,29 @@ if [[ "$REQUIREMENT" == *'=> cdhash '* ]]; then
 fi
 ```
 
-- [ ] **步骤4：运行目标测试与 Shell 语法检查**
+- [ ] **步骤4：让打包脚本调用独立签名脚本**
+
+将原有 `codesign --force --deep --sign - "$APP"` 替换为：
+
+```bash
+bash "$SCRIPT_DIR/sign-app.sh" "$APP"
+```
+
+- [ ] **步骤5：运行隔离行为测试与 Shell 语法检查**
 
 ```bash
 bash -n scripts/package-app.sh
-
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-CLANG_MODULE_CACHE_PATH=/tmp/codex-monitor-clang-cache \
-SWIFT_MODULECACHE_PATH=/tmp/codex-monitor-swift-cache \
-xcrun swift test --disable-sandbox \
-  --filter AppIntegrationTests/testPackagingRequiresStableSigningIdentity
+bash -n scripts/sign-app.sh
+bash Tests/Scripts/sign-app-tests.sh
 ```
 
 预期：全部通过。
 
-- [ ] **步骤5：提交**
+- [ ] **步骤6：提交**
 
 ```bash
-git add scripts/package-app.sh Tests/CodexMonitorTests/AppIntegrationTests.swift
+git add scripts/sign-app.sh scripts/package-app.sh \
+  Tests/Scripts/sign-app-tests.sh
 git commit -m "修复：打包时强制使用稳定签名"
 ```
 

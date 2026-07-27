@@ -175,7 +175,6 @@ git commit -m "功能：增加额度刷新状态策略"
 - 修改：`Sources/CodexMonitor/Notch/NotchWindowController.swift`
 - 修改：`Sources/CodexMonitor/Notch/NotchDashboardView.swift`
 - 修改：`Sources/CodexMonitor/Notch/WeeklyQuotaPage.swift`
-- 修改：`Tests/CodexMonitorTests/AppIntegrationTests.swift`
 
 **接口：**
 
@@ -185,52 +184,9 @@ git commit -m "功能：增加额度刷新状态策略"
 - `WeeklyQuotaPage` 新增 `onRefresh: () -> Void`
 - `NotchRootView` 传入 `store.refreshState` 与 `store.requestRefresh`
 
-- [ ] **步骤1：编写失败的调用链契约测试**
+本任务只接通 SwiftUI 声明式视图的输入，不新增只检查源码文字的变化探测测试。按钮状态行为由任务一的真实值类型测试覆盖，Store 刷新行为由现有 `MonitorStoreTests` 覆盖；本任务通过 Swift 编译和这两组行为测试验证集成。
 
-在 `AppIntegrationTests` 中增加：
-
-```swift
-func testWeeklyQuotaPageReceivesManualRefreshActionFromStore() throws {
-    let root = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let files = [
-        "Sources/CodexMonitor/Notch/NotchWindowController.swift",
-        "Sources/CodexMonitor/Notch/NotchDashboardView.swift",
-        "Sources/CodexMonitor/Notch/WeeklyQuotaPage.swift"
-    ]
-    let source = try files.map {
-        try String(
-            contentsOf: root.appendingPathComponent($0),
-            encoding: .utf8
-        )
-    }.joined(separator: "\n")
-
-    XCTAssertTrue(source.contains("refreshState: store.refreshState"))
-    XCTAssertTrue(source.contains("onRefreshQuota: store.requestRefresh"))
-    XCTAssertTrue(source.contains("refreshState: refreshState"))
-    XCTAssertTrue(source.contains("onRefresh: onRefreshQuota"))
-    XCTAssertTrue(source.contains("Button(action: onRefresh)"))
-    XCTAssertTrue(source.contains(".disabled(!presentation.isEnabled)"))
-}
-```
-
-- [ ] **步骤2：运行测试并确认正确失败**
-
-运行：
-
-```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-CLANG_MODULE_CACHE_PATH=/tmp/codex-monitor-clang-cache \
-SWIFT_MODULECACHE_PATH=/tmp/codex-monitor-swift-cache \
-xcrun swift test --disable-sandbox \
-  --filter AppIntegrationTests/testWeeklyQuotaPageReceivesManualRefreshActionFromStore
-```
-
-预期：断言失败，因为刷新状态和闭包尚未传入页面。
-
-- [ ] **步骤3：修改 `NotchRootView`**
+- [ ] **步骤1：修改 `NotchRootView`**
 
 将根视图改为：
 
@@ -250,7 +206,7 @@ private struct NotchRootView: View {
 }
 ```
 
-- [ ] **步骤4：修改 `NotchDashboardView`**
+- [ ] **步骤2：修改 `NotchDashboardView`**
 
 增加输入：
 
@@ -271,13 +227,14 @@ WeeklyQuotaPage(
 )
 ```
 
-- [ ] **步骤5：把周额度状态区改为按钮**
+- [ ] **步骤3：把周额度状态区改为按钮**
 
 在 `WeeklyQuotaPage` 增加：
 
 ```swift
 let refreshState: RefreshState
 let onRefresh: () -> Void
+@State private var isRefreshHovered = false
 
 private var presentation: QuotaRefreshPresentation {
     .make(
@@ -309,12 +266,17 @@ Button(action: onRefresh) {
 }
 .buttonStyle(.plain)
 .disabled(!presentation.isEnabled)
+.background(
+    Capsule()
+        .fill(Color.white.opacity(isRefreshHovered ? 0.08 : 0))
+)
+.onHover { isRefreshHovered = $0 }
 .help("立即重新扫描 Codex 本地额度数据")
 ```
 
 删除原有 `syncText`。保留共享 `DashboardHeader` 供其他页面使用。
 
-- [ ] **步骤6：运行目标测试与现有额度测试**
+- [ ] **步骤4：编译并运行覆盖两端行为的测试**
 
 运行：
 
@@ -323,24 +285,23 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 CLANG_MODULE_CACHE_PATH=/tmp/codex-monitor-clang-cache \
 SWIFT_MODULECACHE_PATH=/tmp/codex-monitor-swift-cache \
 xcrun swift test --disable-sandbox \
-  --filter AppIntegrationTests/testWeeklyQuotaPageReceivesManualRefreshActionFromStore
+  --filter QuotaRefreshPresentationTests
 
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 CLANG_MODULE_CACHE_PATH=/tmp/codex-monitor-clang-cache \
 SWIFT_MODULECACHE_PATH=/tmp/codex-monitor-swift-cache \
 xcrun swift test --disable-sandbox \
-  --filter QuotaRefreshPresentationTests
+  --filter MonitorStoreTests
 ```
 
-预期：两组测试全部通过。
+预期：项目编译成功，两组行为测试全部通过。
 
-- [ ] **步骤7：提交**
+- [ ] **步骤5：提交**
 
 ```bash
 git add Sources/CodexMonitor/Notch/NotchWindowController.swift \
   Sources/CodexMonitor/Notch/NotchDashboardView.swift \
-  Sources/CodexMonitor/Notch/WeeklyQuotaPage.swift \
-  Tests/CodexMonitorTests/AppIntegrationTests.swift
+  Sources/CodexMonitor/Notch/WeeklyQuotaPage.swift
 git commit -m "功能：增加周额度手动刷新按钮"
 ```
 
@@ -378,4 +339,3 @@ git status --short --branch
 ```
 
 预期：没有未提交的源码改动。
-
