@@ -192,6 +192,10 @@ case "${args[0]:-}" in
             | sed -E 's/.*=//; s/://g' >"$EXPECTED_CA_FINGERPRINT_FILE"
         record
         [[ "${MOCK_FAIL_AT:-}" != "trust" ]] || exit 42
+        if [[ "${MOCK_FAIL_AT:-}" == "trust_partial" ]]; then
+            touch "$CA_TRUST_MARKER" "$CA_CERT_MARKER"
+            exit 42
+        fi
         touch "$CA_TRUST_MARKER" "$CA_CERT_MARKER"
         ;;
     delete-identity)
@@ -216,6 +220,9 @@ case "${args[0]:-}" in
             "${args[4]}" == "$MOCK_KEYCHAIN" ]] ||
             fail "CA 回滚必须按本次指纹删除证书和用户信任"
         record
+        if [[ ! -f "$CA_TRUST_MARKER" || ! -f "$CA_CERT_MARKER" ]]; then
+            exit 53
+        fi
         [[ "${MOCK_CA_ROLLBACK_FAIL:-0}" != "1" ]] || exit 52
         rm -f "$CA_TRUST_MARKER" "$CA_CERT_MARKER"
         touch "$CA_ROLLBACK_MARKER"
@@ -256,7 +263,7 @@ assert_command_order() {
     local actual
     actual="$(awk -F '\t' '{print $1}' "$COMMAND_LOG" | paste -sd, -)"
     [[ "$actual" == "$expected" ]] || {
-        echo "命令顺序错误：期望 $expected，实际 $actual" >&2
+        echo "命令顺序错误：期望 ${expected}，实际 ${actual}" >&2
         exit 1
     }
 }
@@ -357,7 +364,26 @@ assert_temporary_material_cleaned
 
 reset_case
 set +e
-MOCK_FAIL_AT=trust run_setup
+MOCK_FAIL_AT=trust_partial run_setup
+trust_partial_status=$?
+set -e
+if ((trust_partial_status == 0)); then
+    echo "部分写入信任后失败时设置脚本不应成功" >&2
+    exit 1
+fi
+[[ "$trust_partial_status" == "42" ]] || {
+    echo "部分写入信任失败的原始状态未保留：$trust_partial_status" >&2
+    exit 1
+}
+assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,delete-identity,delete-certificate'
+[[ -f "$ROLLBACK_MARKER" && -f "$CA_ROLLBACK_MARKER" ]]
+[[ ! -e "$IDENTITY_MARKER" && ! -e "$CA_TRUST_MARKER" ]]
+[[ ! -e "$CA_CERT_MARKER" ]]
+assert_temporary_material_cleaned
+
+reset_case
+set +e
+MOCK_FAIL_AT=trust run_setup >"$ROLLBACK_OUTPUT" 2>&1
 trust_status=$?
 set -e
 if ((trust_status == 0)); then
@@ -368,9 +394,11 @@ fi
     echo "信任失败的原始状态未保留：$trust_status" >&2
     exit 1
 }
-assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,delete-identity'
+assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,delete-identity,delete-certificate'
+grep -Fq '本地签名 CA 回滚/清理未确认' "$ROLLBACK_OUTPUT"
 [[ -f "$ROLLBACK_MARKER" && ! -e "$IDENTITY_MARKER" ]]
 [[ ! -e "$CA_TRUST_MARKER" && ! -e "$CA_CERT_MARKER" ]]
+[[ ! -e "$CA_ROLLBACK_MARKER" ]]
 assert_temporary_material_cleaned
 
 reset_case
@@ -420,7 +448,7 @@ MOCK_FAIL_AT=verify MOCK_CA_ROLLBACK_FAIL=1 run_setup \
 ca_rollback_status=$?
 set -e
 if ((ca_rollback_status == 0)); then
-    echo "CA 回滚失败时设置脚本不应成功" >&2
+    echo "CA 删除失败时设置脚本不应成功" >&2
     exit 1
 fi
 [[ "$ca_rollback_status" == "1" ]] || {
@@ -428,7 +456,7 @@ fi
     exit 1
 }
 assert_command_order 'find-identity,default-keychain,import,add-trusted-cert,find-identity,delete-identity,delete-certificate'
-grep -Fq '本地签名 CA 回滚失败' "$ROLLBACK_OUTPUT"
+grep -Fq '本地签名 CA 回滚/清理未确认' "$ROLLBACK_OUTPUT"
 [[ -f "$ROLLBACK_MARKER" && ! -e "$IDENTITY_MARKER" ]]
 [[ ! -e "$CA_ROLLBACK_MARKER" ]]
 [[ -f "$CA_TRUST_MARKER" && -f "$CA_CERT_MARKER" ]]

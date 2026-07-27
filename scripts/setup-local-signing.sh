@@ -24,7 +24,7 @@ if [[ -z "$LOGIN_KEYCHAIN" ]]; then
 fi
 TMP="$(mktemp -d)"
 IMPORTED=0
-CA_TRUSTED=0
+CA_TRUST_MAY_EXIST=0
 LEAF_FINGERPRINT=""
 CA_FINGERPRINT=""
 
@@ -37,10 +37,10 @@ cleanup() {
             echo "本地签名叶子身份回滚失败：无法删除本次创建的叶子身份。" >&2
         fi
     fi
-    if ((status != 0 && CA_TRUSTED == 1 && ${#CA_FINGERPRINT} > 0)); then
+    if ((status != 0 && CA_TRUST_MAY_EXIST == 1 && ${#CA_FINGERPRINT} > 0)); then
         if ! security delete-certificate \
             -Z "$CA_FINGERPRINT" -t "$LOGIN_KEYCHAIN"; then
-            echo "本地签名 CA 回滚失败：无法删除本次创建的 CA 证书和用户信任。" >&2
+            echo "本地签名 CA 回滚/清理未确认：无法删除本次可能创建的 CA 证书和用户信任。" >&2
         fi
     fi
 
@@ -102,12 +102,12 @@ security import "$TMP/identity.p12" \
 unset P12_PASSWORD
 IMPORTED=1
 
+CA_TRUST_MAY_EXIST=1
 security add-trusted-cert \
     -r trustRoot \
     -p codeSign \
     -k "$LOGIN_KEYCHAIN" \
     "$TMP/ca-certificate.pem"
-CA_TRUSTED=1
 
 security find-identity -v -p codesigning "$LOGIN_KEYCHAIN" \
     | grep -F "\"$LOCAL_SIGNING_IDENTITY\""
