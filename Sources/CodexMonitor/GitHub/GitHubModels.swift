@@ -91,12 +91,16 @@ enum GitHubContributionRenderPlan {
     static func cells(
         days: [GitHubContributionDay],
         width: CGFloat,
+        height: CGFloat,
         spacing: CGFloat
     ) -> [GitHubContributionRenderCell] {
         guard !days.isEmpty else { return [] }
         let columns = Int(ceil(Double(days.count) / 7.0))
         let availableWidth = width - CGFloat(Swift.max(0, columns - 1)) * spacing
-        let cellSize = Swift.max(0, availableWidth / CGFloat(columns))
+        let widthConstrainedCellSize = Swift.max(0, availableWidth / CGFloat(columns))
+        let availableHeight = height - CGFloat(6) * spacing
+        let heightConstrainedCellSize = Swift.max(0, availableHeight / 7)
+        let cellSize = Swift.min(widthConstrainedCellSize, heightConstrainedCellSize)
 
         return days.enumerated().map { index, day in
             let column = index / 7

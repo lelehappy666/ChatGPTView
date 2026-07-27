@@ -11,6 +11,7 @@ struct GitHubContributionHeatmap: View {
             let cells = GitHubContributionRenderPlan.cells(
                 days: displayDays,
                 width: proxy.size.width,
+                height: proxy.size.height,
                 spacing: 1.25
             )
 

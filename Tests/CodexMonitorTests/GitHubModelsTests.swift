@@ -41,6 +41,7 @@ final class GitHubModelsTests: XCTestCase {
         let cells = GitHubContributionRenderPlan.cells(
             days: days,
             width: 15,
+            height: 55,
             spacing: 1
         )
 
@@ -49,6 +50,28 @@ final class GitHubModelsTests: XCTestCase {
         XCTAssertEqual(cells[6].rect, CGRect(x: 0, y: 48, width: 7, height: 7))
         XCTAssertEqual(cells[7].rect, CGRect(x: 8, y: 0, width: 7, height: 7))
         XCTAssertEqual(cells[13].rect, CGRect(x: 8, y: 48, width: 7, height: 7))
+    }
+
+    func testCanvasRenderPlanKeepsSevenRowsWithinAvailableHeight() {
+        let availableHeight: CGFloat = 72
+        let days = (0..<371).map {
+            GitHubContributionDay(
+                date: Date(timeIntervalSince1970: Double($0) * 86_400),
+                contributionCount: $0
+            )
+        }
+
+        let cells = GitHubContributionRenderPlan.cells(
+            days: days,
+            width: 600,
+            height: availableHeight,
+            spacing: 1.25
+        )
+
+        let expectedCellSize = (availableHeight - 6 * 1.25) / 7
+        XCTAssertEqual(cells[0].rect.width, expectedCellSize, accuracy: 0.001)
+        XCTAssertEqual(cells[0].rect.height, expectedCellSize, accuracy: 0.001)
+        XCTAssertTrue(cells.allSatisfy { $0.rect.maxY <= availableHeight })
     }
 
     func testContributionScaleUsesFiveStableLevels() {
