@@ -24,14 +24,14 @@
 
 <p align="center">
   <img
-    src="docs/designs/macos-notch-pages-v1.png"
+    src="docs/designs/codex-monitor-current-notch-poster-v1.png"
     width="820"
-    alt="Codex Monitor macOS 刘海四页界面设计预览"
+    alt="Codex Monitor 当前 macOS 刘海面板五页海报"
   >
 </p>
 
 <p align="center">
-  <sub>macOS 刘海面板 · 周额度 / 每日活动 / 统计总览 / GitHub 活跃</sub>
+  <sub>macOS 刘海面板 · 本周额度 / 每日活动 / 项目分析 / 统计总览 / GitHub 活跃</sub>
 </p>
 
 ---
