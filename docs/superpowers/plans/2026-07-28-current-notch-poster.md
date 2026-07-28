@@ -238,9 +238,14 @@ try png.write(to: outputURL, options: .atomic)
 
 ```bash
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+mkdir -p .build/module-cache
 find Sources/CodexMonitor -name '*.swift' \
   ! -path '*/App/CodexMonitorApp.swift' -print0 |
-  xargs -0 xcrun swiftc scripts/generate-notch-poster.swift \
+  xargs -0 xcrun swiftc \
+    -swift-version 6 \
+    -target arm64-apple-macosx14.0 \
+    -module-cache-path .build/module-cache \
+    scripts/generate-notch-poster.swift \
     -o .build/generate-notch-poster
 ```
 
