@@ -17,7 +17,7 @@
 - 徽章只展示有实际信息价值的内容：macOS 14+、Swift 6、当前版本 0.1.20、Windows 11。
 - 使用仓库内已有图片，避免依赖外部图片服务：
   - `Resources/AppIconPreview.png`
-  - `docs/designs/macos-unified-menu-popover-v1.png`
+  - `docs/designs/macos-notch-pages-v1.png`
   - `docs/designs/github-activity-page-v1.png`
 - 图片使用相对路径，确保 GitHub 仓库页面能够直接显示。
 
@@ -30,7 +30,7 @@
 - 副标题为“一眼掌握 Codex 额度、活动与项目状态”。
 - 用一段简短文字说明它是原生 macOS 菜单栏应用，读取本机 Codex 会话数据，不打断当前工作。
 - 展示四个状态徽章。
-- 展示完整菜单栏下拉面板设计图作为主视觉。
+- 展示周额度、每日活动、统计总览和 GitHub 活跃四页刘海设计总览图作为主视觉。
 
 ### 2. 核心能力
 

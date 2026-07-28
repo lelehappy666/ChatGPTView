@@ -25,14 +25,14 @@
 
 - 新建：`README.md`
 - 引用：`Resources/AppIconPreview.png`
-- 引用：`docs/designs/macos-unified-menu-popover-v1.png`
+- 引用：`docs/designs/macos-notch-pages-v1.png`
 - 引用：`docs/designs/github-activity-page-v1.png`
 - 链接：`Windows/README.md`
 
 **产出结构：**
 
 - 居中首屏、产品图标、标题、副标题和状态徽章。
-- macOS 完整菜单面板主视觉。
+- macOS 四页刘海面板主视觉。
 - 六项核心能力表格。
 - GitHub 授权前后设计预览。
 - 快速开始、工作方式与隐私、Windows 11、开发说明和问题反馈。
@@ -110,7 +110,7 @@ rg -n "0\\.1\\.20" README.md
 
 ```bash
 test -f Resources/AppIconPreview.png
-test -f docs/designs/macos-unified-menu-popover-v1.png
+test -f docs/designs/macos-notch-pages-v1.png
 test -f docs/designs/github-activity-page-v1.png
 test -f Windows/README.md
 ```
